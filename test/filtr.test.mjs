@@ -1,124 +1,97 @@
-import { test } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { filtruj } from '../lib/filtr.mjs';
+import fs from 'node:fs';
+import { transkryptNaRekordy } from '../lib/filtr.mjs';
 
-const wczytaj = (nazwa) =>
-  readFileSync(fileURLToPath(new URL(`./fixtures/${nazwa}`, import.meta.url)), 'utf8');
+const fixture = name => fs.readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 
-const claude = wczytaj('claude.jsonl');
-const codex = wczytaj('codex.jsonl');
-const codexExec = wczytaj('codex-exec.jsonl');
+const POLA = ['ts', 'kanal', 'sesja', 'repo', 'rola', 'tekst', 'uuid'];
 
-test('transkrypt Claude daje wylacznie prawdziwe wymiany', () => {
-  const rekordy = filtruj(claude, 'claude');
+test('transkrypt Claude\'a zwraca wyłącznie prawdziwe wymiany', () => {
+  const rekordy = transkryptNaRekordy(fixture('claude-sesja.jsonl'), 'claude');
+
+  assert.deepEqual(rekordy.map(r => r.rola), ['michal', 'claude', 'claude', 'claude']);
+  assert.deepEqual(Object.keys(rekordy[0]), POLA);
+  assert.equal(rekordy[0].kanal, 'claude-vscode');
+  assert.equal(rekordy[0].sesja, '4cf5991e-8119-47aa-b92e-de4448304a49');
+  assert.equal(rekordy[0].repo, 'repo');
+  assert.equal(rekordy[0].ts, '2026-07-28T15:09:53.407Z');
+  assert.match(rekordy[0].tekst, /^Review one implemented issue\./);
+  assert.equal(rekordy[1].tekst, 'I\'ll invoke the skill.');
+
+  // żadne rozumowanie, wywołanie ani wynik narzędzia nie przecieka
+  for (const r of rekordy) assert.doesNotMatch(r.tekst, /tool_use_id|Base directory for this skill/);
+});
+
+test('linia queue-operation nie wchodzi, mimo że niesie treść wiadomości', () => {
+  const rekordy = transkryptNaRekordy(fixture('claude-sesja.jsonl'), 'claude');
+  const wiadomosci = rekordy.filter(r => r.tekst.startsWith('Review one implemented issue.'));
+  assert.equal(wiadomosci.length, 1);
+});
+
+test('linie meta nie wchodzą', () => {
+  const rekordy = transkryptNaRekordy(fixture('claude-sesja.jsonl'), 'claude');
+  for (const r of rekordy) assert.doesNotMatch(r.tekst, /^Base directory for this skill/);
+});
+
+test('obudowa komend nie wchodzi', () => {
+  assert.deepEqual(transkryptNaRekordy(fixture('claude-komendy.jsonl'), 'claude'), []);
+});
+
+test('wiadomość z doklejonym system-reminder wchodzi bez tego bloku', () => {
+  const [rekord] = transkryptNaRekordy(fixture('claude-system-reminder.jsonl'), 'claude');
+  assert.equal(rekord.tekst, 'napraw builda');
+});
+
+test('ten sam transkrypt z aktualnym znacznikiem daje pustą listę', () => {
+  const tresc = fixture('claude-sesja.jsonl');
+  const rekordy = transkryptNaRekordy(tresc, 'claude');
+  const ostatni = rekordy.at(-1).uuid;
+  assert.deepEqual(transkryptNaRekordy(tresc, 'claude', ostatni), []);
+  assert.deepEqual(transkryptNaRekordy(tresc, 'claude', rekordy[0].uuid), rekordy.slice(1));
+});
+
+test('nieznany znacznik daje zapis od początku', () => {
+  const tresc = fixture('claude-sesja.jsonl');
   assert.deepEqual(
-    rekordy.map((r) => r.rola),
-    ['michal', 'claude', 'michal'],
+    transkryptNaRekordy(tresc, 'claude', 'nie-ma-takiego-uuid'),
+    transkryptNaRekordy(tresc, 'claude'),
   );
-  assert.deepEqual(rekordy[0], {
-    ts: '2026-07-21T09:26:00.341Z',
-    kanal: 'claude-desktop',
-    sesja: '70527304-d8fa-4808-99a2-97ca6791adff',
-    repo: 'borsu',
-    rola: 'michal',
-    tekst: rekordy[0].tekst,
-    uuid: '850d5988-6327-4c83-9fd5-6e7d8de2e2b4',
-  });
-  assert.match(rekordy[0].tekst, /^My Logitech camera/);
-  assert.equal(rekordy[1].tekst, "I'll investigate before proposing anything. Let me gather read-only diagnostics.");
 });
 
-test('linie poboczne, meta i obudowa komend nie wchodza', () => {
-  const teksty = filtruj(claude, 'claude').map((r) => r.tekst);
-  assert.ok(!teksty.some((t) => t.includes('podagenta')));
-  assert.ok(!teksty.some((t) => t.includes('Caveat:')));
-  assert.ok(!teksty.some((t) => t.includes('<command-')));
+test('ucięta ostatnia linia nie rzuca wyjątku', () => {
+  const tresc = fixture('claude-sesja.jsonl');
+  const uciety = tresc.slice(0, -400);
+  assert.doesNotThrow(() => transkryptNaRekordy(uciety, 'claude'));
+  assert.ok(transkryptNaRekordy(uciety, 'claude').length > 0);
 });
 
-test('wynik narzedzia, wywolanie narzedzia i rozumowanie nie wchodza', () => {
-  const teksty = filtruj(claude, 'claude').map((r) => r.tekst);
-  assert.ok(!teksty.some((t) => t.includes('FriendlyName')));
-  assert.equal(filtruj(claude, 'claude').length, 3);
-});
+test('plik Codeksa daje ten sam siedmiopolowy schemat z syntetyzowanym znacznikiem', () => {
+  const rekordy = transkryptNaRekordy(fixture('codex-sesja.jsonl'), 'codex');
 
-test('doklejony system-reminder jest obcinany, wiadomosc zostaje', () => {
-  const ostatni = filtruj(claude, 'claude').at(-1);
-  assert.equal(ostatni.tekst, 'Sprawdz jeszcze raz kamere.');
-});
-
-test('kilka doklejonych blokow system-reminder tez znika', () => {
-  const linia = JSON.stringify({
-    type: 'user',
-    uuid: 'bbbb',
-    timestamp: '2026-07-21T10:00:00.000Z',
-    sessionId: 's',
-    cwd: 'C:\\Users\\borsu\\repos\\personal',
-    entrypoint: 'cli',
-    message: {
-      role: 'user',
-      content:
-        'Zrob to.\n<system-reminder>pierwszy</system-reminder>\n<system-reminder>drugi</system-reminder>',
-    },
-  });
-  assert.equal(filtruj(linia, 'claude')[0].tekst, 'Zrob to.');
-});
-
-test('linia zaczynajaca sie od system-reminder jest odrzucana', () => {
-  const linia = JSON.stringify({
-    type: 'user',
-    isSidechain: false,
-    uuid: 'aaaa',
-    timestamp: '2026-07-21T10:00:00.000Z',
-    sessionId: 's',
-    cwd: 'C:\\Users\\borsu\\repos\\personal',
-    entrypoint: 'cli',
-    message: { role: 'user', content: '<system-reminder>tylko kontekst</system-reminder>' },
-  });
-  assert.deepEqual(filtruj(linia, 'claude'), []);
-});
-
-test('queue-operation nie wchodzi, mimo ze niesie tresc wiadomosci', () => {
-  const tylkoKolejka = claude.split('\n').filter((l) => l.includes('"queue-operation"')).join('\n');
-  assert.ok(tylkoKolejka.length > 0);
-  assert.deepEqual(filtruj(tylkoKolejka, 'claude'), []);
-});
-
-test('ten sam transkrypt z aktualnym znacznikiem daje pusta liste', () => {
-  const rekordy = filtruj(claude, 'claude');
-  assert.deepEqual(filtruj(claude, 'claude', rekordy.at(-1).uuid), []);
-  assert.deepEqual(filtruj(claude, 'claude', rekordy[0].uuid), rekordy.slice(1));
-});
-
-test('nieznany znacznik daje zapis od poczatku', () => {
-  assert.deepEqual(filtruj(claude, 'claude', 'nie-ma-takiego'), filtruj(claude, 'claude'));
-});
-
-test('ucieta ostatnia linia nie rzuca wyjatku', () => {
-  assert.equal(filtruj(claude + '{"type":"user","mess', 'claude').length, 3);
-});
-
-test('plik Codeksa daje ten sam schemat z syntetyzowanym znacznikiem', () => {
-  const rekordy = filtruj(codex, 'codex');
-  assert.deepEqual(
-    rekordy.map((r) => r.rola),
-    ['michal', 'claude'],
-  );
-  assert.deepEqual(Object.keys(rekordy[0]), ['ts', 'kanal', 'sesja', 'repo', 'rola', 'tekst', 'uuid']);
+  assert.deepEqual(rekordy.map(r => r.rola), ['michal', 'claude', 'claude']);
+  assert.deepEqual(Object.keys(rekordy[0]), POLA);
   assert.equal(rekordy[0].kanal, 'codex_vscode');
-  assert.equal(rekordy[0].repo, 'ChatGgtApp');
-  assert.equal(rekordy[0].sesja, '019b3b2e-dccd-78a0-a990-e12e4023d3bd');
-  assert.equal(rekordy[0].uuid, '019b3b2e-dccd-78a0-a990-e12e4023d3bd#2');
-  assert.equal(rekordy[1].uuid, '019b3b2e-dccd-78a0-a990-e12e4023d3bd#5');
+  assert.equal(rekordy[0].sesja, '019e58ed-6ec6-7c03-93b7-bb9584dd38fc');
+  assert.equal(rekordy[0].repo, 'llm-wiki');
+  assert.equal(rekordy[0].ts, '2026-05-24T07:40:23.111Z');
+  assert.equal(rekordy[0].uuid, '019e58ed-6ec6-7c03-93b7-bb9584dd38fc#7');
+  assert.equal(rekordy[1].uuid, '019e58ed-6ec6-7c03-93b7-bb9584dd38fc#8');
+  assert.match(rekordy[1].tekst, /^I’ll inspect the repo instructions/);
 });
 
-test('znacznik Codeksa wznawia tak samo jak u Claude', () => {
-  const rekordy = filtruj(codex, 'codex');
-  assert.deepEqual(filtruj(codex, 'codex', rekordy[0].uuid), rekordy.slice(1));
-  assert.deepEqual(filtruj(codex, 'codex', rekordy.at(-1).uuid), []);
+test('wznawianie Codeksa działa tak samo jak u Claude\'a', () => {
+  const tresc = fixture('codex-sesja.jsonl');
+  const rekordy = transkryptNaRekordy(tresc, 'codex');
+  assert.deepEqual(transkryptNaRekordy(tresc, 'codex', rekordy.at(-1).uuid), []);
+  assert.deepEqual(transkryptNaRekordy(tresc, 'codex', rekordy[0].uuid), rekordy.slice(1));
 });
 
-test('plik Codeksa o pochodzeniu codex_exec daje pusta liste', () => {
-  assert.deepEqual(filtruj(codexExec, 'codex'), []);
+test('plik Codeksa o pochodzeniu codex_exec daje pustą listę', () => {
+  assert.deepEqual(transkryptNaRekordy(fixture('codex-exec.jsonl'), 'codex'), []);
+});
+
+test('pusta treść daje pustą listę dla obu źródeł', () => {
+  assert.deepEqual(transkryptNaRekordy('', 'claude'), []);
+  assert.deepEqual(transkryptNaRekordy('', 'codex'), []);
 });

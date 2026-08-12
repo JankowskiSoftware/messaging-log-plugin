@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Kod systemu messaging-log: filtr rozmow, hak, skill i skrypty. Dane leza w repo messaging-log.",
+  "description": "Hak, skill i skrypty dziennika rozmów. Dane mieszkają w repo messaging-log.",
   "scripts": {
     "test": "node --test"
   }
