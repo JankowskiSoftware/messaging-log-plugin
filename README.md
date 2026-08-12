@@ -64,6 +64,10 @@ per sesja w `rozmowy/`, w tym samym schemacie co rozmowy Claude'a. Codex nie ma
 haków, więc nikt inny ich nie zbierze. Przebiegi maszynowe (`codex_exec`) nie
 wchodzą nigdy: to 23 z 24 GB tego katalogu i pętla automatu, nie rozmowa.
 
+Ten sam przebieg kasuje katalogi dobowe `rozmowy/` starsze niż sześćdziesiąt dni
+(ADR 0004) — w tym samym zatwierdzeniu co wiersze. Dziennik godzinowy nie jest
+kasowany nigdy, więc po sześćdziesięciu dniach z danego dnia zostają same wiersze.
+
 Każdy przebieg zostawia jedną linię w `~/.messaging-log-godzina.log`. Model woła
 się przez CLI Claude Code (`claude -p --model haiku`), raz na koszyk, czyli parę
 razy na dobę. Nieudane wywołanie nie tworzy wierszy i koszyk wraca za godzinę.

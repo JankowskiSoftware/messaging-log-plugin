@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { czasWarszawski } from '../lib/sesja.mjs';
 import { KATALOG_CODEKSA, dopiszRozmowyCodeksa } from '../lib/codex.mjs';
 import { dopiszWiersze, zachetaKoszyka } from '../lib/wiersze.mjs';
+import { stareDoby, skasujDobe } from '../lib/retencja.mjs';
 import { KLON, git, dziennik, zapewnijKlon, zajmijZamek, zwolnijZamek, pobierz, wypchnij } from '../lib/klon.mjs';
 
 const GODZINA_MS = 3600 * 1000;
@@ -106,7 +107,8 @@ async function main() {
   const nowe = await dopiszWiersze(czytajRekordy(teraz), csvy, teraz, opisz);
 
   const zmienione = Object.keys(nowe).filter(doba => nowe[doba] !== csvy[doba]);
-  if (!zmienione.length) return zapisz('brak nowych koszyków');
+  const przeterminowane = stareDoby(KLON, teraz);
+  if (!zmienione.length && !przeterminowane.length) return zapisz('brak nowych koszyków');
 
   if (!zajmijZamek()) return zapisz('zamek zajęty, koszyki wrócą za godzinę');
   try {
@@ -116,13 +118,23 @@ async function main() {
       fs.writeFileSync(plik, nowe[doba]);
       git('add', '--', `godziny/${doba}.csv`);
     }
-    git('commit', '-m', `godziny: ${zmienione.join(', ')}`);
+    for (const doba of przeterminowane) {
+      skasujDobe(KLON, doba);
+      git('add', '--', `rozmowy/${doba}`);
+    }
+    // katalog mógł nie być jeszcze wypchnięty — wtedy skasowanie nie zmienia indeksu
+    if (!git('diff', '--cached', '--name-only').trim()) return zapisz('nic do zatwierdzenia');
+    const opis = [
+      zmienione.length && `godziny: ${zmienione.join(', ')}`,
+      przeterminowane.length && `retencja: ${przeterminowane.length}`,
+    ].filter(Boolean).join('; ');
+    git('commit', '-m', opis);
     try {
       wypchnij(zapisz);
     } catch (blad) {
       zapisz(`wypchnięcie nieudane, zostaje lokalnie: ${blad.stderr || blad.message}`);
     }
-    zapisz(`dopisane doby: ${zmienione.join(', ')}`);
+    zapisz(`${opis}; skasowane katalogi: ${przeterminowane.length}`);
   } finally {
     zwolnijZamek();
   }
