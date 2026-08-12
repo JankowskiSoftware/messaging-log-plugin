@@ -48,6 +48,23 @@ test('doklejony system-reminder jest obcinany, wiadomosc zostaje', () => {
   assert.equal(ostatni.tekst, 'Sprawdz jeszcze raz kamere.');
 });
 
+test('kilka doklejonych blokow system-reminder tez znika', () => {
+  const linia = JSON.stringify({
+    type: 'user',
+    uuid: 'bbbb',
+    timestamp: '2026-07-21T10:00:00.000Z',
+    sessionId: 's',
+    cwd: 'C:\\Users\\borsu\\repos\\personal',
+    entrypoint: 'cli',
+    message: {
+      role: 'user',
+      content:
+        'Zrob to.\n<system-reminder>pierwszy</system-reminder>\n<system-reminder>drugi</system-reminder>',
+    },
+  });
+  assert.equal(filtruj(linia, 'claude')[0].tekst, 'Zrob to.');
+});
+
 test('linia zaczynajaca sie od system-reminder jest odrzucana', () => {
   const linia = JSON.stringify({
     type: 'user',
