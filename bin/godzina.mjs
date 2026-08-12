@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 // Zadanie godzinowe, budzone co 60 minut na jedynej maszynie chodzącej non stop:
-// pobranie zmian → koszyki z ostatnich 48 godzin → jedno wywołanie modelu na
-// koszyk → wiersze dopisane przez skrypt → zatwierdzenie, wypchnięcie, dziennik.
-// Katalogu projektów Claude'a nie czyta — od tego jest hak.
+// pobranie zmian → rozmowy Codeksa z dysku → koszyki z ostatnich 48 godzin →
+// jedno wywołanie modelu na koszyk → wiersze dopisane przez skrypt →
+// zatwierdzenie, wypchnięcie, dziennik.
+// Katalogu projektów Claude'a nie czyta — od tego jest hak. Codeksa czyta, bo
+// Codex haków nie ma.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { czasWarszawski } from '../lib/sesja.mjs';
+import { KATALOG_CODEKSA, dopiszRozmowyCodeksa } from '../lib/codex.mjs';
 import { dopiszWiersze, zachetaKoszyka } from '../lib/wiersze.mjs';
 import { KLON, git, dziennik, zapewnijKlon, zajmijZamek, zwolnijZamek, pobierz, wypchnij } from '../lib/klon.mjs';
 
@@ -67,6 +70,25 @@ const opisz = async rekordy =>
     timeout: 120_000,
   });
 
+/** Rozmowy Codeksa dokładane przed koszykami, żeby weszły do wierszy tej samej godziny. */
+function zbierzCodeksa(teraz) {
+  if (!zajmijZamek()) return zapisz('zamek zajęty, Codex wróci za godzinę');
+  try {
+    const dopisane = dopiszRozmowyCodeksa(KATALOG_CODEKSA, KLON, doby(teraz));
+    if (!dopisane.length) return;
+    for (const wzgledna of dopisane) git('add', '--', wzgledna);
+    git('commit', '-m', `rozmowy Codeksa: ${dopisane.length}`);
+    try {
+      wypchnij(zapisz);
+    } catch (blad) {
+      zapisz(`wypchnięcie nieudane, zostaje lokalnie: ${blad.stderr || blad.message}`);
+    }
+    zapisz(`Codex: dopisane pliki ${dopisane.join(', ')}`);
+  } finally {
+    zwolnijZamek();
+  }
+}
+
 async function main() {
   const teraz = Date.now();
   zapewnijKlon();
@@ -76,6 +98,8 @@ async function main() {
     // brak sieci wstrzymuje wymianę z remote, ale nie liczenie wierszy
     zapisz(`pobranie nieudane, licze na tym, co lokalne: ${blad.stderr || blad.message}`);
   }
+
+  zbierzCodeksa(teraz);
 
   const csvy = czytajCsvy(teraz);
   // wywołania modelu idą poza zamkiem — trwają minuty, a hak ma pisać dalej
