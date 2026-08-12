@@ -46,6 +46,23 @@ aktualizacją w chmurze jest zmiana skryptu — dowolna, bo unieważnia migawkę
 Klon repo danych powstaje sam przy pierwszej turze, pod `~/.messaging-log`.
 Kiedy coś nie wyjdzie, hak milczy i pisze linię do `~/.messaging-log-hak.log`.
 
+## Skill „co robiłem"
+
+Pytanie „co robiłem wczoraj" albo „co robiłem w ostatnie dwa tygodnie" w dowolnej
+sesji i dowolnym repozytorium — także z telefonu — uruchamia
+`skills/co-robilem/SKILL.md`. Skill odświeża klon i woła
+`bin/co-robilem.mjs [od] [do]`, który wypisuje wiersze dobowe pogrupowane po
+godzinie i repozytorium. Bez argumentów wypisuje wczoraj.
+
+Godziny, w których były rozmowy, ale nie ma wierszy, wychodzą jako
+`bez wierszy: 14, 15` i skill mówi to wprost. Nie odtwarza ich z surowych rozmów —
+to droga ścieżka, a przy oknie 48 godzin zadania godzinowego dziury są rzadkie.
+Skill nie zapisuje ani jednego bajtu do repo: plik dziennika ma dokładnie jednego
+pisarza, którym jest zadanie godzinowe.
+
+Skrypt działa też z ręki, bez sesji Claude'a — wiersze są czytelne same z siebie,
+skill tylko skraca drogę.
+
 ## Zadanie godzinowe
 
 `bin/godzina.mjs` dopisuje wiersze `godziny/<doba>.csv` za godziny, które już się
