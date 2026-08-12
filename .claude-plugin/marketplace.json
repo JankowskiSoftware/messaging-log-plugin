@@ -1,0 +1,11 @@
+{
+  "name": "messaging-log",
+  "owner": { "name": "Michał Jankowski" },
+  "plugins": [
+    {
+      "name": "messaging-log",
+      "source": "./",
+      "description": "Zapisuje rozmowy z Claude Code do prywatnego repo messaging-log."
+    }
+  ]
+}
