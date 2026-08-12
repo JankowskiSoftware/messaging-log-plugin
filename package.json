@@ -1,0 +1,10 @@
+{
+  "name": "messaging-log-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kod systemu messaging-log: filtr rozmow, hak, skill i skrypty. Dane leza w repo messaging-log.",
+  "scripts": {
+    "test": "node --test"
+  }
+}
