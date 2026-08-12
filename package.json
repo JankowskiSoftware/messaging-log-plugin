@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Hak, skill i skrypty dziennika rozmów. Dane mieszkają w repo messaging-log.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "spakuj": "node spakuj.mjs"
   }
 }

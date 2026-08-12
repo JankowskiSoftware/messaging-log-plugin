@@ -20,7 +20,9 @@ const ZAMEK_PRZETERMINOWANY_MS = 5 * 60 * 1000;
 
 // ADR 0001: proxy kontenera obsługuje wyłącznie repozytoria przypisane do sesji,
 // więc jedziemy wprost na github.com. Zmiennych nie przywracamy.
-const SRODOWISKO = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+// EMAIL jest awaryjnym źródłem `user.email` — git sięga po nie dopiero wtedy, gdy
+// konfiguracji nie ma, czyli w świeżym kontenerze, gdzie bez tego zatwierdzenie pada.
+const SRODOWISKO = { EMAIL: 'hak@messaging-log.local', ...process.env, GIT_TERMINAL_PROMPT: '0' };
 for (const zmienna of ['https_proxy', 'HTTPS_PROXY', 'http_proxy', 'HTTP_PROXY', 'all_proxy', 'ALL_PROXY']) {
   delete SRODOWISKO[zmienna];
 }

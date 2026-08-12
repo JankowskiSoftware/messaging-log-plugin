@@ -17,5 +17,16 @@ w `~/.messaging-log-token`, a w paczce `.plugin` w `token.txt` obok pluginu.
 Bez tokenu hak i tak zapisze rozmowę i spróbuje wypchnąć ją poświadczeniami
 gita — token jest po to, żeby działało też tam, gdzie ich nie ma.
 
+## Paczka do Coworku
+
+```
+npm run spakuj
+```
+
+Buduje `messaging-log.plugin` z **zatwierdzonego** stanu repo i dokłada token
+z `~/.messaging-log-token` jako `token.txt`. Paczka idzie na claude.ai przez
+Customize → Plugins i jest w Coworku jedynym nośnikiem — także poświadczenia,
+bo kontener nie ma skąd go wziąć (ADR 0001).
+
 Klon repo danych powstaje sam przy pierwszej turze, pod `~/.messaging-log`.
 Kiedy coś nie wyjdzie, hak milczy i pisze linię do `~/.messaging-log-hak.log`.
