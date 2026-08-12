@@ -85,6 +85,27 @@ Ten sam przebieg kasuje katalogi dobowe `rozmowy/` starsze niż sześćdziesiąt
 (ADR 0004) — w tym samym zatwierdzeniu co wiersze. Dziennik godzinowy nie jest
 kasowany nigdy, więc po sześćdziesięciu dniach z danego dnia zostają same wiersze.
 
+## Pierwszy przebieg
+
+```
+node bin/pierwszy-przebieg.mjs
+```
+
+Jednorazowo, na maszynie z zadaniem godzinowym, żeby system nie startował od
+pustego repo. Dociąga trzydzieści dni rozmów z obu źródeł — transkrypty Claude'a
+z `~/.claude/projects` i rollouty Codeksa — a potem liczy wiersze dziennika za
+ostatnie pięć dni, czyli kilkadziesiąt wywołań taniego modelu. Rozmowy idą tym
+samym filtrem i tą samą funkcją zapisu co warstwa sesyjna, więc w `rozmowy/`
+leży jeden format.
+
+Puszczony drugi raz nie duplikuje ani jednej wymiany i nie rusza wierszy
+policzonych wcześniej. Zamek jest tu twardym warunkiem: przy zajętym przebieg
+kończy się błędem, zamiast pisać obok zadania godzinowego.
+
+Pytanie o pełne cztery tygodnie zacznie dawać kompletną odpowiedź dopiero po
+trzech tygodniach działania systemu — poszerzenie okna to `DNI_WIERSZY`
+w skrypcie.
+
 Każdy przebieg zostawia jedną linię w `~/.messaging-log-godzina.log`. Model woła
 się przez CLI Claude Code (`claude -p --model haiku`), raz na koszyk, czyli parę
 razy na dobę. Nieudane wywołanie nie tworzy wierszy i koszyk wraca za godzinę.

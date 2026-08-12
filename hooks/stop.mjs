@@ -5,9 +5,8 @@
 // i kończy zerem — tura Michała nigdy nie ma na tym ucierpieć.
 
 import fs from 'node:fs';
-import path from 'node:path';
 import { transkryptNaRekordy } from '../lib/filtr.mjs';
-import { sciezkaSesji, ostatniUuid, znajdzSciezkeSesji } from '../lib/sesja.mjs';
+import { dopiszRekordy } from '../lib/sesja.mjs';
 import { KLON, git, dziennik, zapewnijKlon, zajmijZamek, zwolnijZamek, wypchnij } from '../lib/klon.mjs';
 
 const zapisz = dziennik('.messaging-log-hak.log');
@@ -21,19 +20,12 @@ function main() {
   zapewnijKlon();
   if (!zajmijZamek()) return zapisz('zamek zajęty, pomijam turę — dogoni się przy następnej');
   try {
-    const wzgledna = znajdzSciezkeSesji(KLON, sesja);
-    const istniejaca = wzgledna && path.join(KLON, wzgledna);
-    const odUuid = istniejaca ? ostatniUuid(fs.readFileSync(istniejaca, 'utf8')) : undefined;
+    const rekordy = transkryptNaRekordy(fs.readFileSync(transkrypt, 'utf8'), 'claude');
+    const wzgledna = dopiszRekordy(KLON, rekordy);
+    if (!wzgledna) return;
 
-    const rekordy = transkryptNaRekordy(fs.readFileSync(transkrypt, 'utf8'), 'claude', odUuid);
-    if (!rekordy.length) return;
-
-    const docelowy = istniejaca ?? path.join(KLON, sciezkaSesji(rekordy[0]));
-    fs.mkdirSync(path.dirname(docelowy), { recursive: true });
-    fs.appendFileSync(docelowy, rekordy.map(r => JSON.stringify(r)).join('\n') + '\n');
-
-    git('add', '--', path.relative(KLON, docelowy).split(path.sep).join('/'));
-    git('commit', '-m', `rozmowa ${sesja.slice(0, 8)}: +${rekordy.length}`);
+    git('add', '--', wzgledna);
+    git('commit', '-m', `rozmowa ${sesja.slice(0, 8)}`);
     // brak sieci wstrzymuje wypchnięcie, ale nie zapis — zaległość dogoni następna tura
     try {
       wypchnij(zapisz);

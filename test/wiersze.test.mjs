@@ -136,6 +136,15 @@ test('okno to 48 godzin: koszyk sprzed 30 godzin wchodzi, sprzed 72 już nie', a
   assert.deepEqual(Object.keys(csvy), ['2026-08-11']);
 });
 
+test('szersze okno wpuszcza koszyk sprzed 100 godzin, domyślne go odrzuca', async () => {
+  const rekordy = [rekord(new Date(TERAZ - 100 * GODZINA).toISOString())];
+  assert.deepEqual(Object.keys(await dopiszWiersze(rekordy, {}, TERAZ, async () => ['Temat'])), []);
+  assert.deepEqual(
+    Object.keys(await dopiszWiersze(rekordy, {}, TERAZ, async () => ['Temat'], 5 * 24)),
+    ['2026-08-08'],
+  );
+});
+
 test('wymiany sprzed i po północy warszawskiej trafiają do dwóch plików dobowych', async () => {
   const csvy = await dopiszWiersze(
     // 23:30 i 00:30 czasu warszawskiego, czyli 21:30 i 22:30 UTC w sierpniu

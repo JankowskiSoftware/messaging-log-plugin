@@ -6,76 +6,21 @@
 // Katalogu projektów Claude'a nie czyta — od tego jest hak. Codeksa czyta, bo
 // Codex haków nie ma.
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { execFileSync } from 'node:child_process';
-import { czasWarszawski } from '../lib/sesja.mjs';
 import { KATALOG_CODEKSA, dopiszRozmowyCodeksa } from '../lib/codex.mjs';
-import { dopiszWiersze, zachetaKoszyka } from '../lib/wiersze.mjs';
+import { dopiszWiersze } from '../lib/wiersze.mjs';
+import { doby, czytajRekordy, czytajCsvy, zmienioneDoby, zapiszWiersze, opisz } from '../lib/przebieg.mjs';
 import { stareDoby, skasujDobe } from '../lib/retencja.mjs';
 import { KLON, git, dziennik, zapewnijKlon, zajmijZamek, zwolnijZamek, pobierz, wypchnij } from '../lib/klon.mjs';
 
-const GODZINA_MS = 3600 * 1000;
 const OKNO_DOB = 4; // 48 godzin okna plus doba na przesunięcie strefy
-const MODEL = 'haiku'; // najtańszy dostępny
 
 const zapisz = dziennik('.messaging-log-godzina.log');
 
-const doby = teraz =>
-  Array.from({ length: OKNO_DOB }, (_, i) => czasWarszawski(teraz - i * 24 * GODZINA_MS).doba);
-
-function czytajRekordy(teraz) {
-  const rekordy = [];
-  for (const doba of doby(teraz)) {
-    const katalog = path.join(KLON, 'rozmowy', doba);
-    let pliki;
-    try {
-      pliki = fs.readdirSync(katalog);
-    } catch {
-      continue; // doba bez rozmów nie ma katalogu
-    }
-    for (const plik of pliki.filter(p => p.endsWith('.jsonl'))) {
-      for (const linia of fs.readFileSync(path.join(katalog, plik), 'utf8').split('\n')) {
-        if (!linia.trim()) continue;
-        try {
-          rekordy.push(JSON.parse(linia));
-        } catch {
-          // ucięta linia — reszta pliku jest dobra
-        }
-      }
-    }
-  }
-  return rekordy;
-}
-
-function czytajCsvy(teraz) {
-  const csvy = {};
-  for (const doba of doby(teraz)) {
-    try {
-      csvy[doba] = fs.readFileSync(path.join(KLON, 'godziny', `${doba}.csv`), 'utf8');
-    } catch {
-      // brak pliku dobowego znaczy „jeszcze żadnej godziny nie policzono"
-    }
-  }
-  return csvy;
-}
-
-// ponytail: model wołany przez CLI Claude Code, bo klucza API tu nie ma i nie ma
-// go skąd wziąć. Gdyby CLI zniknęło, to jedyne miejsce do przepięcia na HTTP.
-const opisz = async rekordy =>
-  execFileSync('claude', ['-p', '--model', MODEL], {
-    input: zachetaKoszyka(rekordy),
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-    shell: process.platform === 'win32',
-    timeout: 120_000,
-  });
-
 /** Rozmowy Codeksa dokładane przed koszykami, żeby weszły do wierszy tej samej godziny. */
-function zbierzCodeksa(teraz) {
+function zbierzCodeksa(okno) {
   if (!zajmijZamek()) return zapisz('zamek zajęty, Codex wróci za godzinę');
   try {
-    const dopisane = dopiszRozmowyCodeksa(KATALOG_CODEKSA, KLON, doby(teraz));
+    const dopisane = dopiszRozmowyCodeksa(KATALOG_CODEKSA, KLON, okno);
     if (!dopisane.length) return;
     for (const wzgledna of dopisane) git('add', '--', wzgledna);
     git('commit', '-m', `rozmowy Codeksa: ${dopisane.length}`);
@@ -92,6 +37,7 @@ function zbierzCodeksa(teraz) {
 
 async function main() {
   const teraz = Date.now();
+  const okno = doby(teraz, OKNO_DOB);
   zapewnijKlon();
   try {
     pobierz();
@@ -100,24 +46,20 @@ async function main() {
     zapisz(`pobranie nieudane, licze na tym, co lokalne: ${blad.stderr || blad.message}`);
   }
 
-  zbierzCodeksa(teraz);
+  zbierzCodeksa(okno);
 
-  const csvy = czytajCsvy(teraz);
+  const csvy = czytajCsvy(KLON, okno);
   // wywołania modelu idą poza zamkiem — trwają minuty, a hak ma pisać dalej
-  const nowe = await dopiszWiersze(czytajRekordy(teraz), csvy, teraz, opisz);
+  const nowe = await dopiszWiersze(czytajRekordy(KLON, okno), csvy, teraz, opisz);
 
-  const zmienione = Object.keys(nowe).filter(doba => nowe[doba] !== csvy[doba]);
+  const zmienione = zmienioneDoby(nowe, csvy);
   const przeterminowane = stareDoby(KLON, teraz);
   if (!zmienione.length && !przeterminowane.length) return zapisz('brak nowych koszyków');
 
   if (!zajmijZamek()) return zapisz('zamek zajęty, koszyki wrócą za godzinę');
   try {
-    for (const doba of zmienione) {
-      const plik = path.join(KLON, 'godziny', `${doba}.csv`);
-      fs.mkdirSync(path.dirname(plik), { recursive: true });
-      fs.writeFileSync(plik, nowe[doba]);
-      git('add', '--', `godziny/${doba}.csv`);
-    }
+    zapiszWiersze(KLON, zmienione, nowe);
+    for (const doba of zmienione) git('add', '--', `godziny/${doba}.csv`);
     for (const doba of przeterminowane) {
       skasujDobe(KLON, doba);
       git('add', '--', `rozmowy/${doba}`);
