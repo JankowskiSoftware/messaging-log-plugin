@@ -45,3 +45,19 @@ aktualizacją w chmurze jest zmiana skryptu — dowolna, bo unieważnia migawkę
 
 Klon repo danych powstaje sam przy pierwszej turze, pod `~/.messaging-log`.
 Kiedy coś nie wyjdzie, hak milczy i pisze linię do `~/.messaging-log-hak.log`.
+
+## Zadanie godzinowe
+
+`bin/godzina.mjs` dopisuje wiersze `godziny/<doba>.csv` za godziny, które już się
+zamknęły. Chodzi na **jednej** maszynie — tej stojącej non stop — bo dwóch
+pisarzy tego samego pliku rozjedzie się na wypchnięciu. Rejestracja w Harmonogramie
+zadań Windows, z tego klonu pluginu:
+
+```
+schtasks /create /tn messaging-log-godzina /sc hourly /f ^
+  /tr "node %USERPROFILE%\repos\messaging-log-plugin\bin\godzina.mjs"
+```
+
+Każdy przebieg zostawia jedną linię w `~/.messaging-log-godzina.log`. Model woła
+się przez CLI Claude Code (`claude -p --model haiku`), raz na koszyk, czyli parę
+razy na dobę. Nieudane wywołanie nie tworzy wierszy i koszyk wraca za godzinę.
