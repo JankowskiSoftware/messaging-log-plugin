@@ -48,16 +48,34 @@ async function main() {
 
   zbierzCodeksa(okno);
 
+  const rekordy = czytajRekordy(KLON, okno);
   const csvy = czytajCsvy(KLON, okno);
-  // wywołania modelu idą poza zamkiem — trwają minuty, a hak ma pisać dalej
-  const nowe = await dopiszWiersze(czytajRekordy(KLON, okno), csvy, teraz, opisz);
+  // wywołania modelu idą poza zamkiem — trwają minuty, a hak ma pisać dalej.
+  // Opisy zapamiętujemy po koszyku, bo zapis pójdzie względem treści świeższej niż `csvy`
+  const opisy = new Map();
+  const klucz = koszyk => `${koszyk[0].ts} ${koszyk[0].repo}`;
+  const wstepne = await dopiszWiersze(rekordy, csvy, teraz, async koszyk => {
+    const opis = await opisz(koszyk);
+    opisy.set(klucz(koszyk), opis);
+    return opis;
+  });
 
-  const zmienione = zmienioneDoby(nowe, csvy);
   const przeterminowane = stareDoby(KLON, teraz);
-  if (!zmienione.length && !przeterminowane.length) return zapisz('brak nowych koszyków');
+  if (!zmienioneDoby(wstepne, csvy).length && !przeterminowane.length) return zapisz('brak nowych koszyków');
 
   if (!zajmijZamek()) return zapisz('zamek zajęty, koszyki wrócą za godzinę');
   try {
+    // ponowny odczyt pod zamkiem i scalenie: wiersz dopisany przez innego pisarza
+    // w trakcie wywołań modelu ma przeżyć, a koszyk opisany w międzyczasie nie dostaje
+    // drugiego kompletu — dopiszWiersze pomija koszyki, które już mają wiersze.
+    // Model był już zawołany; koszyk bez zapamiętanego opisu wróci za godzinę
+    const swieze = czytajCsvy(KLON, okno);
+    const nowe = await dopiszWiersze(rekordy, swieze, teraz, koszyk => {
+      const opis = opisy.get(klucz(koszyk));
+      if (opis === undefined) throw new Error('koszyk bez policzonego opisu');
+      return opis;
+    });
+    const zmienione = zmienioneDoby(nowe, swieze);
     zapiszWiersze(KLON, zmienione, nowe);
     for (const doba of zmienione) git('add', '--', `godziny/${doba}.csv`);
     for (const doba of przeterminowane) {
