@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import { transkryptNaRekordy } from '../lib/filtr.mjs';
 import { dopiszRekordy } from '../lib/sesja.mjs';
-import { KLON, git, dziennik, zapewnijKlon, zajmijZamek, zwolnijZamek, wypchnij } from '../lib/klon.mjs';
+import { KLON, git, dziennik, zapewnijKlon, zajmijZamek, zwolnijZamek, pobierz, wypchnij } from '../lib/klon.mjs';
 
 const zapisz = dziennik('.messaging-log-hak.log');
 
@@ -20,6 +20,13 @@ function main() {
   zapewnijKlon();
   if (!zajmijZamek()) return zapisz('zamek zajęty, pomijam turę — dogoni się przy następnej');
   try {
+    // znacznik postępu czyta się z lokalnego pliku, więc najpierw dociągamy stan zdalny —
+    // klon w tyle (drugi komputer, sesja chmurowa) przepisałby sesję od starego miejsca
+    try {
+      pobierz();
+    } catch (blad) {
+      zapisz(`pobranie nieudane, piszę na tym, co lokalne: ${blad.stderr || blad.message}`);
+    }
     const rekordy = transkryptNaRekordy(fs.readFileSync(transkrypt, 'utf8'), 'claude');
     const wzgledna = dopiszRekordy(KLON, rekordy);
     if (!wzgledna) return;
