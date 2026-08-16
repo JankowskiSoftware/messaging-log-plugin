@@ -38,6 +38,11 @@ test('obudowa komend nie wchodzi', () => {
   assert.deepEqual(transkryptNaRekordy(fixture('claude-komendy.jsonl'), 'claude'), []);
 });
 
+test('sesja -p (entrypoint sdk-cli) daje pustą listę rekordów', () => {
+  // fixture z prawdziwego transkryptu `claude -p` odpalonego z cmd na Windowsie
+  assert.deepEqual(transkryptNaRekordy(fixture('claude-sdk.jsonl'), 'claude'), []);
+});
+
 test('wiadomość z doklejonym system-reminder wchodzi bez tego bloku', () => {
   const [rekord] = transkryptNaRekordy(fixture('claude-system-reminder.jsonl'), 'claude');
   assert.equal(rekord.tekst, 'napraw builda');
