@@ -12,6 +12,10 @@ import { KLON, git, dziennik, zapewnijKlon, zajmijZamek, zwolnijZamek, pobierz, 
 const zapisz = dziennik('.messaging-log-hak.log');
 
 function main() {
+  // sesja odpalona przez nasze własne skrypty (opisz w przebieg.mjs) nie jest rozmową —
+  // wyjście przed jakimkolwiek dotknięciem gita i klonu
+  if (process.env.MESSAGING_LOG_WEWNETRZNE) return;
+
   const wejscie = JSON.parse(fs.readFileSync(0, 'utf8'));
   const sesja = wejscie.session_id;
   const transkrypt = wejscie.transcript_path;

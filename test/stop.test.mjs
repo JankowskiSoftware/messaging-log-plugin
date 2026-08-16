@@ -167,6 +167,24 @@ test('zastane MERGE_HEAD po dawnej awarii: hak sprząta i pisze dalej', () => {
   }
 });
 
+test('sesja wewnętrzna: hak wychodzi, zanim tknie gita i klon', () => {
+  const dom = fs.mkdtempSync(path.join(os.tmpdir(), 'stop-'));
+  try {
+    const plik = path.join(dom, 'transkrypt.jsonl');
+    fs.writeFileSync(plik, transkrypt([['user', 'streszczenie koszyka']]));
+    const przebieg = spawnSync('node', [STOP], {
+      input: JSON.stringify({ session_id: SESJA, transcript_path: plik }),
+      env: { ...process.env, HOME: dom, MESSAGING_LOG_WEWNETRZNE: '1' },
+      encoding: 'utf8',
+    });
+    assert.equal(przebieg.status, 0);
+    assert.equal(fs.existsSync(path.join(dom, '.messaging-log')), false, 'klon nie ma prawa powstać');
+    assert.equal(fs.existsSync(path.join(dom, '.messaging-log-hak.log')), false, 'nawet dziennik ma milczeć');
+  } finally {
+    fs.rmSync(dom, { recursive: true, force: true });
+  }
+});
+
 test('awaria sieci wstrzymuje wypchnięcie, ale nie zapis', () => {
   const k = srodowisko();
   try {
