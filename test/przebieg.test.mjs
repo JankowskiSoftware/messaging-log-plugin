@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { doby, dociagnijRozmowyClaude, zmienioneDoby, zapiszWiersze } from '../lib/przebieg.mjs';
+import { doby, dociagnijRozmowyClaude, zmienioneDoby, zapiszWiersze, opisz } from '../lib/przebieg.mjs';
 
 const DZIEN_MS = 24 * 3600 * 1000;
 const TERAZ = Date.parse('2026-08-12T14:00:00.000Z');
@@ -88,6 +88,24 @@ test('dociągnięcie dopisuje wyłącznie ogon sesji, która urosła między prz
 test('brak katalogu transkryptów nie jest błędem', () => {
   const k = katalogi();
   assert.deepEqual(dociagnijRozmowyClaude(path.join(k.klon, 'nie-ma'), k.klon, 0), []);
+});
+
+test('opisz znakuje wywołanie modelu jako wewnętrzne, żeby hak go nie nagrał', async () => {
+  const stuby = fs.mkdtempSync(path.join(os.tmpdir(), 'opisz-'));
+  fs.writeFileSync(
+    path.join(stuby, 'claude'),
+    '#!/bin/sh\ncat > /dev/null\necho "znacznik=$MESSAGING_LOG_WEWNETRZNE"\n',
+    { mode: 0o755 },
+  );
+  const sciezka = process.env.PATH;
+  process.env.PATH = `${stuby}:${sciezka}`;
+  try {
+    const wyjscie = await opisz([{ rola: 'michal', tekst: 'cokolwiek' }]);
+    assert.match(wyjscie, /znacznik=1/);
+  } finally {
+    process.env.PATH = sciezka;
+    fs.rmSync(stuby, { recursive: true, force: true });
+  }
 });
 
 test('zapisane są tylko doby, których treść się zmieniła', () => {
