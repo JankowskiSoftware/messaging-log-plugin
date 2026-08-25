@@ -100,3 +100,24 @@ test('pusta treść daje pustą listę dla obu źródeł', () => {
   assert.deepEqual(transkryptNaRekordy('', 'claude'), []);
   assert.deepEqual(transkryptNaRekordy('', 'codex'), []);
 });
+
+test('brak pochodzenia w transkrypcie zapisuje się jako unknown, nie jako pustka', () => {
+  const linia = JSON.stringify({
+    type: 'user',
+    uuid: 'u1',
+    sessionId: 's1',
+    timestamp: '2026-07-05T17:02:36.402Z',
+    cwd: '/repo/alfa',
+    message: { content: 'cześć' },
+  });
+
+  const [rekord] = transkryptNaRekordy(linia, 'claude');
+  assert.equal(rekord.kanal, 'unknown');
+
+  const [zCodeksa] = transkryptNaRekordy(JSON.stringify({
+    type: 'event_msg',
+    timestamp: '2026-07-05T17:02:36.402Z',
+    payload: { type: 'user_message', message: 'cześć' },
+  }), 'codex');
+  assert.equal(zCodeksa.kanal, 'unknown');
+});

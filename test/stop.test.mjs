@@ -13,6 +13,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 const KORZEN = path.dirname(import.meta.dirname);
 const STOP = path.join(KORZEN, 'hooks', 'stop.mjs');
 const KLON_MJS = path.join(KORZEN, 'lib', 'klon.mjs');
+const OSTRZEZENIE = path.join(KORZEN, 'hooks', 'ostrzezenie.mjs');
 const ZDALNY_URL = 'https://github.com/JankowskiSoftware/messaging-log.git';
 
 const SESJA = 'e5b1a539-a443-4957-b265-241e57ee9d49';
@@ -193,14 +194,7 @@ test('awaria sieci wstrzymuje wypchnięcie, ale nie zapis', () => {
   const k = srodowisko();
   try {
     // „sieć" znika: przekierowanie prowadzi donikąd
-    fs.writeFileSync(path.join(k.dom, '.gitconfig'), [
-      '[user]',
-      '\tname = Test',
-      '\temail = test@test.local',
-      `[url "${path.join(k.dom, 'nie-ma.git')}"]`,
-      `\tinsteadOf = ${ZDALNY_URL}`,
-      '',
-    ].join('\n'));
+    przekieruj(k, path.join(k.dom, 'nie-ma.git'));
 
     assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
 
@@ -211,6 +205,79 @@ test('awaria sieci wstrzymuje wypchnięcie, ale nie zapis', () => {
     const dziennik = fs.readFileSync(path.join(k.dom, '.messaging-log-hak.log'), 'utf8');
     assert.match(dziennik, /pobranie nieudane/);
     assert.match(dziennik, /wypchnięcie nieudane/);
+  } finally {
+    fs.rmSync(k.dom, { recursive: true, force: true });
+  }
+});
+
+const AWARIA = k => path.join(k.dom, '.messaging-log-awaria');
+const slad = k => JSON.parse(fs.readFileSync(AWARIA(k), 'utf8'));
+const ostrzez = k => spawnSync('node', [OSTRZEZENIE], { env: k.env, encoding: 'utf8' });
+
+/** Przekierowanie github.com na wskazane repo; „nie-ma.git" udaje brak sieci. */
+function przekieruj(k, cel) {
+  fs.writeFileSync(path.join(k.dom, '.gitconfig'), [
+    '[user]', '\tname = Test', '\temail = test@test.local',
+    `[url "${cel.replaceAll(path.sep, '/')}"]`, `\tinsteadOf = ${ZDALNY_URL}`, '',
+  ].join('\n'));
+}
+
+test('nieudane wypchnięcie: ślad awarii, ostrzeżenie przy następnej turze, odzysk kasuje ślad', () => {
+  const k = srodowisko();
+  try {
+    przekieruj(k, path.join(k.dom, 'nie-ma.git'));
+    assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
+    assert.equal(slad(k).odzyskiwalne, true, 'zaległość gitowa jest odzyskiwalna');
+
+    // ostrzeżenie idzie synchronicznym hakiem, bo wyjście asynchronicznego nie dociera do Michała
+    const przed = ostrzez(k);
+    assert.equal(przed.status, 0);
+    assert.match(JSON.parse(przed.stdout).systemMessage, /Messaging Log/);
+
+    // sieć wraca: ta sama tura raz jeszcze — zaległość dochodzi, nic się nie dubluje
+    przekieruj(k, k.zdalne);
+    assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
+
+    assert.equal(fs.existsSync(AWARIA(k)), false, 'dostarczona zaległość kasuje ślad');
+    assert.deepEqual(uuidy(k.git(k.zdalne, 'show', `main:${WZGLEDNA}`)), [`${SESJA}-0`, `${SESJA}-1`]);
+    assert.equal(ostrzez(k).stdout, '', 'bez śladu ostrzeżenie milczy');
+  } finally {
+    fs.rmSync(k.dom, { recursive: true, force: true });
+  }
+});
+
+test('niepiszący magazyn lokalny nigdy nie melduje zapisu', () => {
+  const k = srodowisko();
+  try {
+    // katalog w miejscu pliku sesji: zapis pada tak samo jak na niepiszącym dysku
+    fs.mkdirSync(path.join(k.klon, WZGLEDNA), { recursive: true });
+
+    assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
+
+    assert.equal(slad(k).odzyskiwalne, false, 'bez zapisu lokalnego nie ma czego dogonić');
+    assert.doesNotMatch(k.git(k.klon, 'log', '--format=%s'), /rozmowa e5b1a539/);
+
+    // udana tura innej sesji nie ma prawa skasować śladu nieodzyskanej pracy
+    przekieruj(k, k.zdalne);
+    fs.rmSync(path.join(k.klon, WZGLEDNA), { recursive: true });
+    assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
+    assert.equal(slad(k).odzyskiwalne, false, 'ślad trwałej awarii czeka na decyzję Michała');
+  } finally {
+    fs.rmSync(k.dom, { recursive: true, force: true });
+  }
+});
+
+test('zdarzenie Stop bez transkryptu: pominięte i zgłoszone, klon nietknięty', () => {
+  const k = srodowisko();
+  try {
+    const przebieg = spawnSync('node', [STOP], {
+      input: JSON.stringify({ session_id: SESJA }),
+      env: k.env,
+      encoding: 'utf8',
+    });
+    assert.equal(przebieg.status, 0);
+    assert.equal(slad(k).odzyskiwalne, false);
+    assert.match(slad(k).powod, /transkryptu/);
   } finally {
     fs.rmSync(k.dom, { recursive: true, force: true });
   }
