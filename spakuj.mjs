@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Buduje paczkę .plugin do wgrania w Customize → Plugins (Cowork, ticket 04).
-// Paczka to zip zatwierdzonego stanu repo plus token, który w Coworku nie ma
-// innej drogi do kontenera niż ta paczka (ADR 0001).
+// Paczka zawiera tylko hak Coworka i jego zależności. Lokalne bin/ jest celowo
+// pominięte, bo claude.ai odrzuca niewidoczne na ekranie zatwierdzania programy.
 //
 //   node spakuj.mjs [wyjście] [plik-tokenu]
 
@@ -20,14 +20,27 @@ if (!fs.readFileSync(zrodloTokenu, 'utf8').trim()) {
 
 // git archive bierze token spod własnej nazwy — plik jest poza gitem i tak ma zostać
 const token = path.join(korzen, 'token.txt');
-fs.copyFileSync(zrodloTokenu, token);
+const tokenJuzNaMiejscu = zrodloTokenu === token;
+const poprzedniToken = !tokenJuzNaMiejscu && fs.existsSync(token) ? fs.readFileSync(token) : null;
+if (!tokenJuzNaMiejscu) fs.copyFileSync(zrodloTokenu, token);
 try {
-  execFileSync('git', ['archive', '--format=zip', `--add-file=${token}`, '-o', wyjscie, 'HEAD'], {
+  execFileSync('git', [
+    'archive', '--format=zip', `--add-file=${token}`, '-o', wyjscie, 'HEAD',
+    '.claude-plugin/plugin.json',
+    'hooks/hooks.json',
+    'hooks/stop.mjs',
+    'lib/filtr.mjs',
+    'lib/klon.mjs',
+    'lib/sesja.mjs',
+  ], {
     cwd: korzen,
     stdio: 'pipe',
   });
 } finally {
-  fs.rmSync(token, { force: true });
+  if (!tokenJuzNaMiejscu) {
+    if (poprzedniToken) fs.writeFileSync(token, poprzedniToken);
+    else fs.rmSync(token, { force: true });
+  }
 }
 
 console.log(wyjscie);

@@ -47,8 +47,11 @@ const rekordZdalny = i =>
 function srodowisko() {
   const dom = fs.mkdtempSync(path.join(os.tmpdir(), 'stop-'));
   const zdalne = path.join(dom, 'zdalne.git');
+  const zdalneGitConfig = zdalne.replaceAll('\\', '/');
   const klon = path.join(dom, '.messaging-log');
-  const env = { ...process.env, HOME: dom };
+  const pustyToken = path.join(dom, 'pusty-token');
+  fs.writeFileSync(pustyToken, '');
+  const env = { ...process.env, HOME: dom, USERPROFILE: dom, MESSAGING_LOG_TOKEN_PATH: pustyToken };
   const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { env, encoding: 'utf8' });
 
   execFileSync('git', ['init', '--bare', '-b', 'main', zdalne], { env, stdio: 'pipe' });
@@ -56,7 +59,7 @@ function srodowisko() {
     '[user]',
     '\tname = Test',
     '\temail = test@test.local',
-    `[url "${zdalne}"]`,
+    `[url "${zdalneGitConfig}"]`,
     `\tinsteadOf = ${ZDALNY_URL}`,
     '',
   ].join('\n'));
@@ -89,6 +92,7 @@ function hak(k, wymiany, srodowiskoHaka = {}) {
 }
 
 const uuidy = tresc => tresc.trim().split('\n').map(l => JSON.parse(l).uuid);
+const lf = tresc => tresc.replaceAll('\r\n', '\n');
 
 test('cofnięty klon: hak pobiera przed zapisem i nie duplikuje wymian', () => {
   const k = srodowisko();
@@ -114,7 +118,7 @@ test('cofnięty klon: hak pobiera przed zapisem i nie duplikuje wymian', () => {
     const tresc = fs.readFileSync(path.join(k.klon, WZGLEDNA), 'utf8');
     assert.deepEqual(uuidy(tresc), [`${SESJA}-0`, `${SESJA}-1`, `${SESJA}-2`, `${SESJA}-3`]);
     // wypchnięte: zdalne widzi to samo, bez konfliktu
-    assert.equal(k.git(k.zdalne, 'show', `main:${WZGLEDNA}`), tresc);
+    assert.equal(lf(k.git(k.zdalne, 'show', `main:${WZGLEDNA}`)), lf(tresc));
   } finally {
     fs.rmSync(k.dom, { recursive: true, force: true });
   }

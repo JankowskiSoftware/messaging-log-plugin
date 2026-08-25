@@ -21,8 +21,11 @@ const SESJA = 'aaaa1111-a443-4957-b265-241e57ee9d49';
 function srodowisko() {
   const dom = fs.mkdtempSync(path.join(os.tmpdir(), 'godzina-'));
   const zdalne = path.join(dom, 'zdalne.git');
+  const zdalneGitConfig = zdalne.replaceAll('\\', '/');
   const klon = path.join(dom, '.messaging-log');
-  const env = { ...process.env, HOME: dom };
+  const pustyToken = path.join(dom, 'pusty-token');
+  fs.writeFileSync(pustyToken, '');
+  const env = { ...process.env, HOME: dom, USERPROFILE: dom, MESSAGING_LOG_TOKEN_PATH: pustyToken };
   const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { env, encoding: 'utf8' });
 
   execFileSync('git', ['init', '--bare', '-b', 'main', zdalne], { env, stdio: 'pipe' });
@@ -30,7 +33,7 @@ function srodowisko() {
     '[user]',
     '\tname = Test',
     '\temail = test@test.local',
-    `[url "${zdalne}"]`,
+    `[url "${zdalneGitConfig}"]`,
     `\tinsteadOf = ${ZDALNY_URL}`,
     '',
   ].join('\n'));
@@ -63,19 +66,32 @@ function atrapaModelu(k, cudzyWiersz) {
   const stuby = path.join(k.dom, 'stuby');
   fs.mkdirSync(stuby);
   const csv = path.join(k.klon, 'godziny', `${k.doba}.csv`);
-  fs.writeFileSync(path.join(stuby, 'claude'), [
-    '#!/bin/sh',
-    'cat > /dev/null',
-    `mkdir -p ${JSON.stringify(path.dirname(csv))}`,
-    `csv=${JSON.stringify(csv)}`,
-    'if [ ! -f "$csv" ]; then printf \'data,godzina,od,do,repo,wymiany,temat\\n\' > "$csv"; fi',
-    `printf '%s\\n' ${JSON.stringify(cudzyWiersz)} >> "$csv"`,
-    'echo "Temat z modelu"',
-  ].join('\n') + '\n', { mode: 0o755 });
-  k.env.PATH = `${stuby}:${k.env.PATH}`;
+  const windows = process.platform === 'win32';
+  const nazwa = windows ? 'claude.cmd' : 'claude';
+  const program = path.join(stuby, 'claude-stub.mjs');
+  fs.writeFileSync(program, [
+    "import fs from 'node:fs';",
+    "import path from 'node:path';",
+    'fs.readFileSync(0, \'utf8\');',
+    `const csv = ${JSON.stringify(csv)};`,
+    'fs.mkdirSync(path.dirname(csv), { recursive: true });',
+    "if (!fs.existsSync(csv)) fs.writeFileSync(csv, 'data,godzina,od,do,repo,wymiany,temat\\n');",
+    `fs.appendFileSync(csv, ${JSON.stringify(`${cudzyWiersz}\n`)});`,
+    "process.stdout.write('Temat z modelu\\n');",
+  ].join('\n') + '\n');
+  const tresc = windows
+    ? `@echo off\r\nnode "${program}"\r\n`
+    : `#!/bin/sh\nexec node ${JSON.stringify(program)}\n`;
+  fs.writeFileSync(path.join(stuby, nazwa), tresc, { mode: 0o755 });
+  const kluczPath = Object.keys(k.env).find(klucz => klucz.toLowerCase() === 'path') ?? 'PATH';
+  k.env[kluczPath] = `${stuby}${path.delimiter}${k.env[kluczPath] ?? ''}`;
 }
 
-const zadanie = k => spawnSync('node', [GODZINA], { env: k.env, encoding: 'utf8' });
+const zadanie = k => {
+  const wynik = spawnSync('node', [GODZINA], { env: k.env, encoding: 'utf8' });
+  if (wynik.error) throw wynik.error;
+  return wynik;
+};
 
 test('wiersz dopisany w trakcie wywołań modelu przeżywa zapis', () => {
   const k = srodowisko();

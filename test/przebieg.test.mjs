@@ -92,13 +92,16 @@ test('brak katalogu transkryptów nie jest błędem', () => {
 
 test('opisz znakuje wywołanie modelu jako wewnętrzne, żeby hak go nie nagrał', async () => {
   const stuby = fs.mkdtempSync(path.join(os.tmpdir(), 'opisz-'));
+  const windows = process.platform === 'win32';
   fs.writeFileSync(
-    path.join(stuby, 'claude'),
-    '#!/bin/sh\ncat > /dev/null\necho "znacznik=$MESSAGING_LOG_WEWNETRZNE"\n',
+    path.join(stuby, windows ? 'claude.cmd' : 'claude'),
+    windows
+      ? '@echo off\r\nmore > NUL\r\necho znacznik=%MESSAGING_LOG_WEWNETRZNE%\r\n'
+      : '#!/bin/sh\ncat > /dev/null\necho "znacznik=$MESSAGING_LOG_WEWNETRZNE"\n',
     { mode: 0o755 },
   );
   const sciezka = process.env.PATH;
-  process.env.PATH = `${stuby}:${sciezka}`;
+  process.env.PATH = `${stuby}${path.delimiter}${sciezka}`;
   try {
     const wyjscie = await opisz([{ rola: 'michal', tekst: 'cokolwiek' }]);
     assert.match(wyjscie, /znacznik=1/);

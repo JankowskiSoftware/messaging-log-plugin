@@ -15,6 +15,8 @@ test('paczka .plugin niesie manifest, hak i token', () => {
   const katalog = fs.mkdtempSync(path.join(os.tmpdir(), 'spakuj-'));
   const paczka = path.join(katalog, 'messaging-log.plugin');
   const token = path.join(katalog, 'token');
+  const tokenRepo = path.join(KORZEN, 'token.txt');
+  const tokenRepoPrzed = fs.existsSync(tokenRepo) ? fs.readFileSync(tokenRepo) : null;
   fs.writeFileSync(token, 'github_pat_udawany\n');
   try {
     execFileSync('node', [SPAKUJ, paczka, token], { cwd: KORZEN, stdio: 'pipe' });
@@ -22,6 +24,8 @@ test('paczka .plugin niesie manifest, hak i token', () => {
     assert.ok(zawiera(paczka, '.claude-plugin/plugin.json'));
     assert.ok(zawiera(paczka, 'hooks/stop.mjs'));
     assert.ok(zawiera(paczka, 'token.txt'), 'poświadczenie musi jechać w paczce (ADR 0001)');
+    assert.equal(zawiera(paczka, 'bin/'), false, 'claude.ai odrzuca paczki z katalogiem bin/');
+    assert.deepEqual(fs.existsSync(tokenRepo) ? fs.readFileSync(tokenRepo) : null, tokenRepoPrzed);
   } finally {
     fs.rmSync(katalog, { recursive: true, force: true });
   }
