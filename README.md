@@ -12,6 +12,19 @@ Bez zależności zewnętrznych. Testy: `node --test`.
 /plugin install messaging-log@messaging-log
 ```
 
+To samo repo jest wtyczką Codeksa (`.codex-plugin/plugin.json` i `hooks.json`
+w korzeniu — tak samo jak wtyczki firmowe Codeksa). Codex woła ten sam
+`hooks/stop.mjs` z argumentem `codex`, więc rozmowy z obu narzędzi idą jednym
+torem: filtr, plik sesji, zatwierdzenie, wypchnięcie i ten sam ślad awarii.
+Adapter Codeksa to wyłącznie brama zdatności na natywnych polach zdarzenia —
+`hook_event_name`, `agent_id`, `agent_type` — bez czytania treści rozmowy. Tura
+podagenta (`SubagentStop`) odpada przed zapisem; tura główna, która sama odpaliła
+podagenty, wchodzi normalnie; każde inne zdarzenie jest pomijane i zgłaszane.
+
+Codeksowi wystarcza jeden hak asynchroniczny, bo pokazuje jego `systemMessage`:
+ostrzeżenie o zaległości wypisuje sam `stop.mjs`, zanim cokolwiek zrobi. Claude
+Code potrzebuje do tego osobnego, synchronicznego `hooks/ostrzezenie.mjs`.
+
 Token drobnoziarnisty do repo `messaging-log` (Contents: read and write) ląduje
 w `~/.messaging-log-token`, a w paczce `.plugin` w `token.txt` obok pluginu.
 Bez tokenu hak i tak zapisze rozmowę i spróbuje wypchnąć ją poświadczeniami
@@ -83,8 +96,8 @@ schtasks /create /tn messaging-log-godzina /sc hourly /f ^
 
 Przed liczeniem koszyków ten sam przebieg dociąga rozmowy z Codeksa —
 `~/.codex/sessions/RRRR/MM/DD/rollout-*.jsonl` z okna czterech dób — do plików
-per sesja w `rozmowy/`, w tym samym schemacie co rozmowy Claude'a. Codex nie ma
-haków, więc nikt inny ich nie zbierze. Przebiegi maszynowe (`codex_exec`) nie
+per sesja w `rozmowy/`, w tym samym schemacie co rozmowy Claude'a. To zapas na
+wypadek, gdyby hak Codeksa nie doszedł. Przebiegi maszynowe (`codex_exec`) nie
 wchodzą nigdy: to 23 z 24 GB tego katalogu i pętla automatu, nie rozmowa.
 
 Ten sam przebieg kasuje katalogi dobowe `rozmowy/` starsze niż sześćdziesiąt dni

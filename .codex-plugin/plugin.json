@@ -1,0 +1,6 @@
+{
+  "name": "messaging-log",
+  "version": "0.1.0",
+  "description": "Zapisuje rozmowy z Codeksa do prywatnego repo messaging-log.",
+  "author": { "name": "Michał Jankowski" }
+}
