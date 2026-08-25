@@ -3,8 +3,8 @@
 //
 //   node bin/co-robilem.mjs [od] [do]     # RRRR-MM-DD, domyślnie wczoraj
 //
-// Nic nie zapisuje do repo danych. Jedyny pisarz pliku dziennika to zadanie
-// godzinowe; drugi zderzyłby się z nim na wypchnięciu.
+// Nic nie zapisuje do repo danych. Dziennik godzinowy jest zamknięty na dzień
+// przełączenia (2026-08-25) i od tego dnia niesie wyłącznie historię.
 
 import fs from 'node:fs';
 import path from 'node:path';

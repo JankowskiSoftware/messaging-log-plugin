@@ -28,9 +28,15 @@ i wypisuje te wiersze za wskazany zakres.
 
 Linia `bez wierszy: 14, 15` znaczy, że w tych godzinach były rozmowy, ale nie zostały
 policzone. **Wymień takie godziny wprost.** Nie odtwarzaj ich z surowych rozmów
-w `rozmowy/` — to droga ścieżka, a zadanie godzinowe zwykle nadrobi je samo.
+w `rozmowy/` — to droga ścieżka.
+
+Dziennik `godziny/` jest zamknięty na **2026-08-25**: od tego dnia nikt do niego
+nie dopisuje. Pytanie o dzień od 2026-08-25 włącznie odpowiadaj z plików
+aktywności repo `personal` — `AKTYWNOSC/dni/<doba>.md`, sekcja na godzinę — i
+powiedz wprost, skąd bierzesz odpowiedź. Puste `brak zapisu` z dziennika za taki
+dzień nie znaczy, że nic się nie działo.
 
 `brak zapisu` znaczy tyle, że za ten dzień nie ma nic w repo. Nie zgaduj, co się działo.
 
 Skill **niczego nie zapisuje**. Nie zatwierdzaj, nie wypychaj i nie ruszaj plików
-w `~/.messaging-log` — jedynym pisarzem dziennika jest zadanie godzinowe.
+w `~/.messaging-log` — pisze tam wyłącznie hak sesyjny i zadanie retencji.

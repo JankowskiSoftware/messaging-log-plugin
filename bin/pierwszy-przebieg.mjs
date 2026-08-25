@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// Operacja jednorazowa, nie część cyklu godzinowego: system startuje z zapasem
-// historii zamiast od pustego repo (system-v1 #10).
+// Operacja jednorazowa, poza jakimkolwiek harmonogramem: system startuje z zapasem
+// historii zamiast od pustego repo (system-v1 #10). Wiersze dziennika dopisuje
+// wyłącznie do historii sprzed przełączenia — bieżące sekcje aktywności liczy
+// pisarz z repo `personal`, nie ten skrypt.
 //
 //   node bin/pierwszy-przebieg.mjs
 //
 // Trzydzieści dni rozmów z obu źródeł, wiersze dziennika za ostatnie pięć dni —
 // parę minut na rozmowy, kilkadziesiąt wywołań taniego modelu na wiersze.
 // Puszczony dwa razy nie duplikuje ani jednej wymiany i nie rusza wierszy, które
-// zadanie godzinowe już policzyło: dedupe siedzi w dopiszRekordy i dopiszWiersze.
+// policzył wcześniej: dedupe siedzi w dopiszRekordy i dopiszWiersze.
 
 import { KATALOG_CODEKSA, dopiszRozmowyCodeksa } from '../lib/codex.mjs';
 import { dopiszWiersze } from '../lib/wiersze.mjs';
@@ -32,7 +34,7 @@ function zatwierdz(sciezka, opis) {
   try {
     wypchnij(powiedz);
   } catch (blad) {
-    // brak sieci nie może zabrać drogiej części przebiegu — zaległość dogoni zadanie godzinowe
+    // brak sieci nie może zabrać drogiej części przebiegu — zaległość zabierze następny hak
     powiedz(`wypchnięcie nieudane, zostaje lokalnie: ${blad.stderr || blad.message}`);
   }
   return true;
@@ -40,7 +42,7 @@ function zatwierdz(sciezka, opis) {
 
 /** Zamek jest tu twardym warunkiem: przebieg trwa minuty i pisze w dwóch turach. */
 function podZamkiem(praca) {
-  if (!zajmijZamek()) throw new Error('zamek na klonie zajęty — zatrzymaj zadanie godzinowe i spróbuj ponownie');
+  if (!zajmijZamek()) throw new Error('zamek na klonie zajęty — poczekaj na koniec cudzego zapisu i spróbuj ponownie');
   try {
     return praca();
   } finally {

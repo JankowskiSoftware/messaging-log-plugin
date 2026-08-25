@@ -1,7 +1,9 @@
 # messaging-log-plugin
 
-Cały kod dziennika rozmów: filtr transkryptów, hak sesyjny, skill i skrypty
-zadania godzinowego. Dane mieszkają osobno, w repo `messaging-log` (ADR 0003).
+Cały kod zapisu rozmów: filtr transkryptów, hak sesyjny obu narzędzi, skill,
+zadanie retencji i pierwszy przebieg. Dane mieszkają osobno, w repo
+`messaging-log` (ADR 0003), a godzinowe sekcje aktywności liczy repo `personal`
+(ADR 0006) — tutaj nie ma ani jednego pisarza tych sekcji.
 
 Bez zależności zewnętrznych. Testy: `node --test`.
 
@@ -13,7 +15,7 @@ rozjechałyby się same:
 
 ```
 git clone https://github.com/JankowskiSoftware/messaging-log-plugin %USERPROFILE%\repos\messaging-log-plugin
-git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.1.0
+git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.2.0
 ```
 
 ```
@@ -37,9 +39,10 @@ z Claude Code i z Codeksa, i do tego liczy godzinowe sekcje aktywności. Drugi
 jest **tylko zapisujący**: zapisuje rozmowy z obu narzędzi i sekcji nie liczy
 nigdy.
 
-Pełny właściciel to instalacja powyżej plus `AKTYWNOSC/setup-ClaudeAktywnosc.cmd`
-z repo `personal`, który zakłada znacznik `~/.messaging-log-wlasciciel` i
-rejestruje zadanie godzinowe. Tylko zapisujący to instalacja powyżej i nic
+Pełny właściciel to instalacja powyżej, `AKTYWNOSC/setup-ClaudeAktywnosc.cmd`
+z repo `personal` — zakłada znacznik `~/.messaging-log-wlasciciel` i rejestruje
+godzinowe zadanie pisarza aktywności — plus dobowe zadanie retencji niżej.
+Tylko zapisujący to instalacja powyżej i nic
 więcej — bez znacznika pisarz aktywności kończy przebieg, zanim cokolwiek
 odświeży czy zapisze, także puszczony z ręki. Dwóch pisarzy tego samego pliku
 więc nie będzie.
@@ -55,7 +58,7 @@ Podpowiedź do wklejenia w sesji na drugim komputerze:
 ```
 Skonfiguruj ten komputer jako TYLKO ZAPISUJĄCY dla Messaging Loga.
 1. git clone https://github.com/JankowskiSoftware/messaging-log-plugin %USERPROFILE%\repos\messaging-log-plugin
-2. git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.1.0   (ta sama wersja co na pierwszym komputerze)
+2. git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.2.0   (ta sama wersja co na pierwszym komputerze)
 3. /plugin marketplace add %USERPROFILE%\repos\messaging-log-plugin oraz /plugin install messaging-log@messaging-log
 4. Wpisz token do repo messaging-log w ~/.messaging-log-token
 Nie zakładaj ~/.messaging-log-wlasciciel i nie uruchamiaj
@@ -124,36 +127,49 @@ sesji i dowolnym repozytorium — także z telefonu — uruchamia
 `bin/co-robilem.mjs [od] [do]`, który wypisuje wiersze dobowe pogrupowane po
 godzinie i repozytorium. Bez argumentów wypisuje wczoraj.
 
+Dziennik `godziny/` jest **zamknięty na 2026-08-25** — od przełączenia nikt do
+niego nie dopisuje, więc skill odpowiada z niego wyłącznie o dniach sprzed tej
+daty. Od tego dnia bieżące odpowiedzi stoją w plikach aktywności repo `personal`
+(`AKTYWNOSC/dni/<doba>.md`); skill mówi to wprost, zamiast zgłaszać `brak zapisu`.
+
 Godziny, w których były rozmowy, ale nie ma wierszy, wychodzą jako
-`bez wierszy: 14, 15` i skill mówi to wprost. Nie odtwarza ich z surowych rozmów —
-to droga ścieżka, a przy oknie 48 godzin zadania godzinowego dziury są rzadkie.
-Skill nie zapisuje ani jednego bajtu do repo: plik dziennika ma dokładnie jednego
-pisarza, którym jest zadanie godzinowe.
+`bez wierszy: 14, 15`. Skill nie zapisuje ani jednego bajtu do repo.
 
 Skrypt działa też z ręki, bez sesji Claude'a — wiersze są czytelne same z siebie,
 skill tylko skraca drogę.
 
-## Zadanie godzinowe
+## Zadanie retencji
 
-`bin/godzina.mjs` dopisuje wiersze `godziny/<doba>.csv` za godziny, które już się
-zamknęły. Chodzi na **jednej** maszynie — tej stojącej non stop — bo dwóch
-pisarzy tego samego pliku rozjedzie się na wypchnięciu. Rejestracja w Harmonogramie
-zadań Windows, z tego klonu pluginu:
+`bin/retencja.mjs` kasuje katalogi dobowe `rozmowy/` starsze niż sześćdziesiąt dni
+(ADR 0004) i wypycha to skasowanie. Poza tym nie pisze niczego. Chodzi raz na dobę,
+na maszynie pełnego właściciela:
 
 ```
-schtasks /create /tn messaging-log-godzina /sc hourly /f ^
-  /tr "node %USERPROFILE%\repos\messaging-log-plugin\bin\godzina.mjs"
+schtasks /create /tn messaging-log-retencja /sc daily /st 04:00 /f ^
+  /tr "node %USERPROFILE%\repos\messaging-log-plugin\bin\retencja.mjs"
 ```
 
-Przed liczeniem koszyków ten sam przebieg dociąga rozmowy z Codeksa —
-`~/.codex/sessions/RRRR/MM/DD/rollout-*.jsonl` z okna czterech dób — do plików
-per sesja w `rozmowy/`, w tym samym schemacie co rozmowy Claude'a. To zapas na
-wypadek, gdyby hak Codeksa nie doszedł. Przebiegi maszynowe (`codex_exec`) nie
-wchodzą nigdy: to 23 z 24 GB tego katalogu i pętla automatu, nie rozmowa.
+Dziennik godzinowy nie jest kasowany nigdy, więc po sześćdziesięciu dniach
+z danego dnia zostaje historia w `godziny/` i sekcje aktywności w repo `personal`.
 
-Ten sam przebieg kasuje katalogi dobowe `rozmowy/` starsze niż sześćdziesiąt dni
-(ADR 0004) — w tym samym zatwierdzeniu co wiersze. Dziennik godzinowy nie jest
-kasowany nigdy, więc po sześćdziesięciu dniach z danego dnia zostają same wiersze.
+Nieudane pobranie ani nieudane wypchnięcie nie są awarią: skasowanie zostaje
+lokalnie i pójdzie ze zwykłym wypchnięciem następnego haka. Każdy przebieg
+zostawia linię w `~/.messaging-log-retencja.log`.
+
+## Przełączenie ze starego zadania godzinowego
+
+Zadanie `messaging-log-godzina` — godzinowy skan rolloutów Codeksa z dysku plus
+pisarz wierszy `godziny/<doba>.csv` — jest wycofane. Rozmowy obu narzędzi zapisuje
+natywny hak Stop po każdej turze, godzinowe sekcje aktywności liczy repo
+`personal`, a stare katalogi kasuje zadanie retencji. Na maszynie, na której
+zadanie jest jeszcze zarejestrowane, wyrejestrowanie brzmi:
+
+```
+schtasks /delete /tn messaging-log-godzina /f
+```
+
+Kolejność ma znaczenie: zadanie retencji ma już chodzić, zanim tamto zniknie —
+inaczej przez cykl nikt nie kasuje starych rozmów.
 
 ## Pierwszy przebieg
 
@@ -161,8 +177,7 @@ kasowany nigdy, więc po sześćdziesięciu dniach z danego dnia zostają same w
 node bin/pierwszy-przebieg.mjs
 ```
 
-Jednorazowo, na maszynie z zadaniem godzinowym, żeby system nie startował od
-pustego repo. Dociąga trzydzieści dni rozmów z obu źródeł — transkrypty Claude'a
+Jednorazowo, przy zakładaniu systemu, żeby nie startował od pustego repo. Dociąga trzydzieści dni rozmów z obu źródeł — transkrypty Claude'a
 z `~/.claude/projects` i rollouty Codeksa — a potem liczy wiersze dziennika za
 ostatnie pięć dni, czyli kilkadziesiąt wywołań taniego modelu. Rozmowy idą tym
 samym filtrem i tą samą funkcją zapisu co warstwa sesyjna, więc w `rozmowy/`
@@ -170,12 +185,16 @@ leży jeden format.
 
 Puszczony drugi raz nie duplikuje ani jednej wymiany i nie rusza wierszy
 policzonych wcześniej. Zamek jest tu twardym warunkiem: przy zajętym przebieg
-kończy się błędem, zamiast pisać obok zadania godzinowego.
+kończy się błędem, zamiast pisać obok haka.
+
+Po przełączeniu jest to skrypt historyczny: wiersze dopisuje do zamkniętego
+dziennika `godziny/`, a bieżące sekcje aktywności i tak liczy pisarz z repo
+`personal`, z surowych rozmów. Świeżej maszynie wystarcza sam zapas rozmów.
 
 Pytanie o pełne cztery tygodnie zacznie dawać kompletną odpowiedź dopiero po
 trzech tygodniach działania systemu — poszerzenie okna to `DNI_WIERSZY`
 w skrypcie.
 
-Każdy przebieg zostawia jedną linię w `~/.messaging-log-godzina.log`. Model woła
-się przez CLI Claude Code (`claude -p --model haiku`), raz na koszyk, czyli parę
-razy na dobę. Nieudane wywołanie nie tworzy wierszy i koszyk wraca za godzinę.
+Przebieg zostawia linię w `~/.messaging-log-godzina.log`. Model woła się przez CLI
+Claude Code (`claude -p --model haiku`), raz na koszyk. Nieudane wywołanie nie
+tworzy wierszy.
