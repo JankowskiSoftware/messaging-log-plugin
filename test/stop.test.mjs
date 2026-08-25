@@ -159,7 +159,10 @@ test('zastane MERGE_HEAD po dawnej awarii: hak sprząta i pisze dalej', () => {
     assert.notEqual(spawnSync('git', ['-C', k.klon, 'merge', 'FETCH_HEAD'], { env: k.env }).status, 0);
     assert.ok(fs.existsSync(path.join(k.klon, '.git', 'MERGE_HEAD')));
 
-    assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
+    // rozjazd treści zostaje zgłoszony (zapis idzie dalej), ale klon ma być czysty
+    const przebieg = hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]);
+    assert.equal(przebieg.status, 1);
+    assert.match(przebieg.stderr, /messaging-log: /);
 
     assert.equal(fs.existsSync(path.join(k.klon, '.git', 'MERGE_HEAD')), false);
     assert.deepEqual(uuidy(fs.readFileSync(path.join(k.klon, WZGLEDNA), 'utf8')), [
@@ -202,7 +205,11 @@ test('awaria sieci wstrzymuje wypchnięcie, ale nie zapis', () => {
       '',
     ].join('\n'));
 
-    assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
+    // awaria ma być widoczna: kod różny od zera i linia na stderr, nie sama cisza
+    const przebieg = hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]);
+    assert.equal(przebieg.status, 1);
+    assert.match(przebieg.stderr, /messaging-log: pobranie nieudane/);
+    assert.match(przebieg.stderr, /messaging-log: wypchnięcie nieudane/);
 
     assert.deepEqual(uuidy(fs.readFileSync(path.join(k.klon, WZGLEDNA), 'utf8')), [
       `${SESJA}-0`, `${SESJA}-1`,
