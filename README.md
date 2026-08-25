@@ -30,14 +30,10 @@ bo kontener nie ma skąd go wziąć (ADR 0001).
 
 ## Skrypt startowy sesji chmurowej
 
-```
-npm run chmura
-```
-
-Wypisuje skrypt do pola *Setup script* środowiska chmurowego: trzy kropki
-w prawym górnym rogu sesji → *Edit environment*. Środowisko należy do konta,
-więc to jedno wklejenie obowiązuje we wszystkich repozytoriach (ADR 0002).
-Skrypt zapisuje ustawienia, token, instaluje plugin i klonuje repo danych.
+`setup-cloud.sh` jest gotowym skryptem do pola *Setup script* środowiska
+chmurowego: trzy kropki w prawym górnym rogu sesji → *Edit environment*.
+Przed wklejeniem zastąp `__MESSAGING_LOG_TOKEN__` tokenem do repo danych.
+Skrypt instaluje Ponytail i Messaging Log oraz klonuje repo danych.
 
 Migawka systemu plików trzyma wynik do następnej zmiany skryptu albo mniej
 więcej siedem dni. Pluginy z repo gitowego nie odświeżają się same, więc
