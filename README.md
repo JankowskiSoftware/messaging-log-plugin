@@ -32,8 +32,9 @@ w prywatnym repo `messaging-log` (ADR 0003, ADR 0005).
 npm run spakuj
 ```
 
-Buduje `messaging-log.plugin` z **zatwierdzonego** stanu repo i dokłada token
-z `~/.messaging-log-token` jako `token.txt`. Paczka idzie na claude.ai przez
+Buduje `~/messaging-log.plugin` z **zatwierdzonego** stanu repo i dokłada token
+z `~/.messaging-log-token` jako `token.txt` — przez katalog tymczasowy, więc
+ani token, ani paczka nigdy nie leżą w katalogu repo. Paczka idzie na claude.ai przez
 Customize → Plugins i jest w Coworku jedynym nośnikiem — także poświadczenia,
 bo kontener nie ma skąd go wziąć (ADR 0001).
 
