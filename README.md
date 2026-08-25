@@ -17,14 +17,24 @@ w `~/.messaging-log-token`, a w paczce `.plugin` w `token.txt` obok pluginu.
 Bez tokenu hak i tak zapisze rozmowę i spróbuje wypchnąć ją poświadczeniami
 gita — token jest po to, żeby działało też tam, gdzie ich nie ma.
 
+## Gdzie mieszka token
+
+Repo pluginu jest publiczne — zawiera wyłącznie kod. Token do repo danych
+nigdy nie trafia do gita (`token.txt` i `*.plugin` są w `.gitignore`,
+historia sprawdzona) i żyje dokładnie w trzech miejscach, każde poza repo:
+`~/.messaging-log-token` na maszynie lokalnej, w paczce `.plugin` wgranej na
+claude.ai i w polu *Setup script* środowiska chmurowego. Same rozmowy leżą
+w prywatnym repo `messaging-log` (ADR 0003, ADR 0005).
+
 ## Paczka do Coworku
 
 ```
 npm run spakuj
 ```
 
-Buduje `messaging-log.plugin` z **zatwierdzonego** stanu repo i dokłada token
-z `~/.messaging-log-token` jako `token.txt`. Paczka idzie na claude.ai przez
+Buduje `~/messaging-log.plugin` z **zatwierdzonego** stanu repo i dokłada token
+z `~/.messaging-log-token` jako `token.txt` — przez katalog tymczasowy, więc
+ani token, ani paczka nigdy nie leżą w katalogu repo. Paczka idzie na claude.ai przez
 Customize → Plugins i jest w Coworku jedynym nośnikiem — także poświadczenia,
 bo kontener nie ma skąd go wziąć (ADR 0001).
 
