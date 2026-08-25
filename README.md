@@ -17,6 +17,15 @@ w `~/.messaging-log-token`, a w paczce `.plugin` w `token.txt` obok pluginu.
 Bez tokenu hak i tak zapisze rozmowę i spróbuje wypchnąć ją poświadczeniami
 gita — token jest po to, żeby działało też tam, gdzie ich nie ma.
 
+## Gdzie mieszka token
+
+Repo pluginu jest publiczne — zawiera wyłącznie kod. Token do repo danych
+nigdy nie trafia do gita (`token.txt` i `*.plugin` są w `.gitignore`,
+historia sprawdzona) i żyje dokładnie w trzech miejscach, każde poza repo:
+`~/.messaging-log-token` na maszynie lokalnej, w paczce `.plugin` wgranej na
+claude.ai i w polu *Setup script* środowiska chmurowego. Same rozmowy leżą
+w prywatnym repo `messaging-log` (ADR 0003, ADR 0005).
+
 ## Paczka do Coworku
 
 ```
