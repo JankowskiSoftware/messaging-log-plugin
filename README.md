@@ -7,9 +7,60 @@ Bez zależności zewnętrznych. Testy: `node --test`.
 
 ## Instalacja
 
+Na obu komputerach dokładnie to samo, z klonu odbitego na tagu wersji — nie
+prosto z GitHuba, bo tamten adres ciągnie gałąź domyślną i obie maszyny
+rozjechałyby się same:
+
 ```
-/plugin marketplace add JankowskiSoftware/messaging-log-plugin
+git clone https://github.com/JankowskiSoftware/messaging-log-plugin %USERPROFILE%\repos\messaging-log-plugin
+git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.1.0
+```
+
+```
+/plugin marketplace add %USERPROFILE%\repos\messaging-log-plugin
 /plugin install messaging-log@messaging-log
+```
+
+Odbicie na tagu stoi w miejscu: dopóki ktoś ręcznie nie wpisze `git fetch --tags`
+i `git checkout <nowszy tag>`, wersja się nie rusza. Automatycznego
+aktualizatora nie ma i nie będzie. Wydanie to podbicie wersji w trzech
+manifestach (`package.json` i oba `plugin.json` — pilnuje tego
+`test/wersja.test.mjs`), tag `vX.Y.Z` i `git push --tags`.
+
+To samo odbicie obsługuje oba narzędzia: Claude Code bierze `.claude-plugin`,
+Codex `.codex-plugin`, hak jest jeden.
+
+## Dwa komputery
+
+Pierwszy skonfigurowany komputer jest **pełnym właścicielem**: zapisuje rozmowy
+z Claude Code i z Codeksa, i do tego liczy godzinowe sekcje aktywności. Drugi
+jest **tylko zapisujący**: zapisuje rozmowy z obu narzędzi i sekcji nie liczy
+nigdy.
+
+Pełny właściciel to instalacja powyżej plus `AKTYWNOSC/setup-ClaudeAktywnosc.cmd`
+z repo `personal`, który zakłada znacznik `~/.messaging-log-wlasciciel` i
+rejestruje zadanie godzinowe. Tylko zapisujący to instalacja powyżej i nic
+więcej — bez znacznika pisarz aktywności kończy przebieg, zanim cokolwiek
+odświeży czy zapisze, także puszczony z ręki. Dwóch pisarzy tego samego pliku
+więc nie będzie.
+
+Nazw komputerów, wyboru właściciela, wymiany stanu między maszynami ani
+automatycznego przejęcia roli nie ma. Wyłączony pełny właściciel wstrzymuje
+sekcje do swojego następnego zwykłego przebiegu godzinowego, który nadrabia
+zaległość z różnicy zatwierdzeń — drugi komputer nie przejmuje niczego i przez
+ten czas dalej tylko zapisuje.
+
+Podpowiedź do wklejenia w sesji na drugim komputerze:
+
+```
+Skonfiguruj ten komputer jako TYLKO ZAPISUJĄCY dla Messaging Loga.
+1. git clone https://github.com/JankowskiSoftware/messaging-log-plugin %USERPROFILE%\repos\messaging-log-plugin
+2. git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.1.0   (ta sama wersja co na pierwszym komputerze)
+3. /plugin marketplace add %USERPROFILE%\repos\messaging-log-plugin oraz /plugin install messaging-log@messaging-log
+4. Wpisz token do repo messaging-log w ~/.messaging-log-token
+Nie zakładaj ~/.messaging-log-wlasciciel i nie uruchamiaj
+AKTYWNOSC/setup-ClaudeAktywnosc.cmd z repo personal — sekcje aktywności liczy
+wyłącznie pierwszy komputer.
 ```
 
 To samo repo jest wtyczką Codeksa (`.codex-plugin/plugin.json` i `hooks.json`
