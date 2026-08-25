@@ -11,10 +11,10 @@ import { KLON, git, dziennik, wytrzyj, zapewnijKlon, zajmijZamek, zwolnijZamek, 
 
 const zapisz = dziennik('.messaging-log-hak.log');
 
-// Hak jest synchroniczny dokładnie po to: stderr haka, który wyszedł kodem różnym
-// od zera, Claude Code pokazuje przy końcu tury. Z flagą async wynik szedł do kosza,
-// więc cicha awaria wyglądała identycznie jak sukces. Kod 1 nie blokuje tury —
-// blokuje dopiero 2, i tego tu nie ma.
+// Hak chodzi z flagą async, żeby nie doklejać sekundy do końca każdej tury.
+// Claude Code wyrzuca wtedy wynik haka do kosza, więc powód awarii musi zostać
+// na dysku: najpierw dziennik ~/.messaging-log-hak.log, dopiero potem stderr
+// i kod 1 — te dwa są dla uruchomienia wprost (testy, ręczne wywołanie).
 function zglos(powod) {
   zapisz(powod);
   process.exitCode = 1;

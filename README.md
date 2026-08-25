@@ -17,8 +17,11 @@ w `~/.messaging-log-token`, a w paczce `.plugin` w `token.txt` obok pluginu.
 Bez tokenu hak i tak zapisze rozmowę i spróbuje wypchnąć ją poświadczeniami
 gita — token jest po to, żeby działało też tam, gdzie ich nie ma.
 
-Hak chodzi synchronicznie (limit 20 s). To cena za widoczność: wynik haka z flagą
-`async` Claude Code wyrzuca do kosza, więc awaria wyglądała identycznie jak sukces.
+Hak chodzi asynchronicznie (limit 20 s), więc nie przedłuża tury. Cena: wynik haka
+z flagą `async` Claude Code wyrzuca do kosza, więc awarii nie widać w sesji — czyta
+się ją z `~/.messaging-log-hak.log`. Zgubić da się najwyżej ostatnią turę sesji,
+jeśli kontener zniknie w trakcie zapisu; nikt jej potem nie dogania, bo zadanie
+godzinowe transkryptów Claude'a nie czyta.
 
 ## Gdzie mieszka token
 
