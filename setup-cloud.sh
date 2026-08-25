@@ -1,4 +1,7 @@
 #!/bin/bash
+# ZASTĄP poniższy placeholder tokenem GitHub do repo messaging-log.
+TOKEN='__MESSAGING_LOG_TOKEN__'
+
 mkdir -p ~/.claude
 cat > ~/.claude/settings.json <<'USTAWIENIA'
 {
@@ -13,7 +16,6 @@ cat > ~/.claude/settings.json <<'USTAWIENIA'
 }
 USTAWIENIA
 umask 077
-TOKEN='__MESSAGING_LOG_TOKEN__'
 printf '%s\n' "$TOKEN" > ~/.messaging-log-token
 {
   # ADR 0001: proxy kontenera obsługuje wyłącznie repozytoria przypisane do sesji
