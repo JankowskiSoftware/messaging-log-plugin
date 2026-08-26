@@ -26,5 +26,13 @@ printf '%s\n' "$TOKEN" > ~/.messaging-log-token
   claude plugin install messaging-log@messaging-log --scope user
   git clone --depth 1 "https://oauth2:$TOKEN@github.com/JankowskiSoftware/messaging-log.git" ~/.messaging-log
   git -C ~/.messaging-log remote set-url origin https://github.com/JankowskiSoftware/messaging-log.git
-} > /tmp/messaging-log-setup.log 2>&1 || true
+
+  # Cicha awaria instalacji wygląda dokładnie jak sukces — a bez pluginu nie ma haka
+  # i rozmowy z chmury nie trafiają nigdzie. Sprawdzamy wynik, nie przebieg.
+  grep -q 'messaging-log@messaging-log' ~/.claude/plugins/installed_plugins.json \
+    || echo "BŁĄD: plugin messaging-log nie zainstalowany — hak Stop nie ruszy"
+  [ -d ~/.messaging-log/.git ] || echo "BŁĄD: klon repo danych nie powstał — sprawdź token"
+# tee zamiast przekierowania do /tmp: log środowiska chmurowego jest jedynym miejscem,
+# gdzie widać, czemu instalacja padła. sed pilnuje, żeby token tam nie wyciekł.
+} 2>&1 | sed "s|$TOKEN|***|g" | tee /tmp/messaging-log-setup.log
 exit 0

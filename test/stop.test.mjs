@@ -196,6 +196,7 @@ test('awaria sieci wstrzymuje wypchnięcie, ale nie zapis', () => {
     // „sieć" znika: przekierowanie prowadzi donikąd
     przekieruj(k, path.join(k.dom, 'nie-ma.git'));
 
+    // hak kończy zerem — awarię widać w dzienniku i śladzie, nie w kodzie wyjścia
     assert.equal(hak(k, [['user', 'wymiana 0'], ['assistant', 'wymiana 1']]).status, 0);
 
     assert.deepEqual(uuidy(fs.readFileSync(path.join(k.klon, WZGLEDNA), 'utf8')), [

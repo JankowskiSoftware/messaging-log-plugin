@@ -84,6 +84,12 @@ w `~/.messaging-log-token`, a w paczce `.plugin` w `token.txt` obok pluginu.
 Bez tokenu hak i tak zapisze rozmowę i spróbuje wypchnąć ją poświadczeniami
 gita — token jest po to, żeby działało też tam, gdzie ich nie ma.
 
+Hak chodzi asynchronicznie (limit 20 s), więc nie przedłuża tury. Cena: wynik haka
+z flagą `async` Claude Code wyrzuca do kosza, więc awarii nie widać w samym haku —
+dlatego zostawia ślad w `~/.messaging-log-awaria` i w `~/.messaging-log-hak.log`,
+a przy następnej turze pokazuje go synchroniczny `hooks/ostrzezenie.mjs`. Zgubić
+da się najwyżej ostatnią turę sesji, jeśli kontener zniknie w trakcie zapisu.
+
 ## Gdzie mieszka token
 
 Repo pluginu jest publiczne — zawiera wyłącznie kod. Token do repo danych
@@ -117,7 +123,10 @@ więcej siedem dni. Pluginy z repo gitowego nie odświeżają się same, więc
 aktualizacją w chmurze jest zmiana skryptu — dowolna, bo unieważnia migawkę.
 
 Klon repo danych powstaje sam przy pierwszej turze, pod `~/.messaging-log`.
-Kiedy coś nie wyjdzie, hak milczy i pisze linię do `~/.messaging-log-hak.log`.
+Kiedy coś nie wyjdzie, hak zostawia ślad awarii, a ostrzeżenie o nim wychodzi
+przy następnej turze; ta sama linia trafia do `~/.messaging-log-hak.log`. Skrypt startowy na koniec
+sprawdza, czy plugin faktycznie się zainstalował i czy klon powstał — nieudana
+instalacja wygląda inaczej niż udana.
 
 ## Skill „co robiłem"
 
