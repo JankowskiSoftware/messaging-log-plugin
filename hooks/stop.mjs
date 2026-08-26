@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Hak Stop, uruchamiany z flagą async po każdej turze: transkrypt tej sesji →
 // nowe rekordy → plik sesji w klonie → zatwierdzenie → wypchnięcie.
-// Ten sam plik obsługuje Claude'a i Codeksa — Codex woła go z argumentem `codex`.
-// Adapter Codeksa to wyłącznie brama zdatności poniżej: dalej idzie wspólny tor.
+// Ten sam plik i ten sam `hooks/hooks.json` obsługują Claude'a i Codeksa: format
+// transkryptu poznaje filtr po kształcie linii, więc żaden host nie musi się
+// przedstawiać argumentem ani osobnym plikiem haka.
 // Granicą sukcesu jest zapis lokalny, nie wypchnięcie: zaległe zatwierdzenia
 // zabiera następna tura, bo `push HEAD:main` niesie je razem z bieżącym.
 // Cokolwiek pójdzie źle, hak kończy zerem — tura Michała nigdy nie ma ucierpieć —
@@ -11,10 +12,8 @@
 import fs from 'node:fs';
 import { transkryptNaRekordy } from '../lib/filtr.mjs';
 import { dopiszRekordy } from '../lib/sesja.mjs';
-import { oznaczAwarie, odznaczAwarie, komunikatSladu } from '../lib/awaria.mjs';
+import { oznaczAwarie, odznaczAwarie } from '../lib/awaria.mjs';
 import { KLON, git, dziennik, wytrzyj, zapewnijKlon, zajmijZamek, zwolnijZamek, pobierz, wypchnij } from '../lib/klon.mjs';
-
-const ZRODLO = process.argv[2] === 'codex' ? 'codex' : 'claude';
 
 const zapisz = dziennik('.messaging-log-hak.log');
 const opis = blad => wytrzyj(blad.stderr || blad.message);
@@ -26,21 +25,13 @@ function zglos(powod, odzyskiwalne) {
 }
 
 /**
- * Brama Codeksa: tylko natywne pola zdarzenia, zero zgadywania z treści rozmowy.
- * `hook_event_name` oddziela turę główną od SubagentStop, a `agent_id`/`agent_type`
- * są wypełnione wyłącznie dla podagenta. Tura główna, która sama odpaliła podagenty,
- * przychodzi jako czyste `Stop` i wchodzi normalnie. Przebieg maszynowy
- * (`originator: codex_exec`) odsiewa filtr po `session_meta`, przed zapisem.
+ * Podagent, poznany po natywnych polach zdarzenia i po niczym więcej: własne
+ * zdarzenie `SubagentStop` albo wypełniona tożsamość agenta. Tura główna, która
+ * sama odpaliła podagenty, przychodzi bez nich i wchodzi normalnie. Przebieg
+ * maszynowy (`originator: codex_exec`) odsiewa filtr po `session_meta`.
  */
-function turaGlownaCodeksa(wejscie) {
-  if (wejscie.hook_event_name === 'Stop') return !wejscie.agent_id && !wejscie.agent_type;
-  // podagent ma własne zdarzenie i pomijamy go świadomie, bez zgłoszenia
-  if (wejscie.hook_event_name === 'SubagentStop') return false;
-  // cokolwiek innego znaczy, że natywne dane nie identyfikują interaktywnej tury
-  // głównej — wtedy wolno tylko pominąć i powiedzieć wprost, czego zabrakło
-  zglos(`zdarzenie Codeksa \`hook_event_name\`=${JSON.stringify(wejscie.hook_event_name ?? null)} — natywne dane nie identyfikują interaktywnej tury głównej, tura pominięta`, false);
-  return false;
-}
+const podagent = wejscie =>
+  wejscie.hook_event_name === 'SubagentStop' || !!wejscie.agent_id || !!wejscie.agent_type;
 
 function main() {
   // sesja odpalona przez nasze własne skrypty (opisz w przebieg.mjs) nie jest rozmową —
@@ -48,13 +39,8 @@ function main() {
   if (process.env.MESSAGING_LOG_WEWNETRZNE) return;
 
   const wejscie = JSON.parse(fs.readFileSync(0, 'utf8'));
-  if (ZRODLO === 'codex') {
-    // Codex pokazuje `systemMessage` haka asynchronicznego, więc drugi, synchroniczny
-    // hak jest tu zbędny — ostrzeżenie idzie stąd i przed jakąkolwiek pracą
-    const komunikat = komunikatSladu();
-    if (komunikat) process.stdout.write(JSON.stringify({ systemMessage: komunikat }));
-    if (!turaGlownaCodeksa(wejscie)) return;
-  }
+  // podagenta pomijamy świadomie, bez zgłoszenia — to nie rozmowa Michała
+  if (podagent(wejscie)) return;
 
   const sesja = wejscie.session_id;
   const transkrypt = wejscie.transcript_path;
@@ -75,7 +61,7 @@ function main() {
 
     let awaria;
     try {
-      const rekordy = transkryptNaRekordy(fs.readFileSync(transkrypt, 'utf8'), ZRODLO);
+      const rekordy = transkryptNaRekordy(fs.readFileSync(transkrypt, 'utf8'));
       const wzgledna = dopiszRekordy(KLON, rekordy);
       if (wzgledna) {
         git('add', '--', wzgledna);

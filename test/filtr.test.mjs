@@ -92,6 +92,29 @@ test('wznawianie Codeksa działa tak samo jak u Claude\'a', () => {
   assert.deepEqual(transkryptNaRekordy(tresc, 'codex', rekordy[0].uuid), rekordy.slice(1));
 });
 
+test('bez podanego źródła format poznaje się z kształtu transkryptu', () => {
+  // wspólny hooks/hooks.json woła hak bez argumentu — obu hostom ma wystarczyć plik
+  assert.deepEqual(
+    transkryptNaRekordy(fixture('codex-sesja.jsonl')),
+    transkryptNaRekordy(fixture('codex-sesja.jsonl'), 'codex'),
+  );
+  assert.deepEqual(
+    transkryptNaRekordy(fixture('claude-sesja.jsonl')),
+    transkryptNaRekordy(fixture('claude-sesja.jsonl'), 'claude'),
+  );
+});
+
+test('bieżący format Desktopa Codeksa czyta się tak samo jak starszy', () => {
+  const wiersz = (typ, text) => JSON.stringify({
+    timestamp: '2026-07-05T17:02:36.402Z',
+    type: 'event_msg',
+    payload: { type: 'item_completed', item: { type: typ, text } },
+  });
+  const rekordy = transkryptNaRekordy([wiersz('UserMessage', 'pytanie'), wiersz('AgentMessage', 'odpowiedź')].join('\n'));
+  assert.deepEqual(rekordy.map(r => r.rola), ['michal', 'claude']);
+  assert.deepEqual(rekordy.map(r => r.tekst), ['pytanie', 'odpowiedź']);
+});
+
 test('plik Codeksa o pochodzeniu codex_exec daje pustą listę', () => {
   assert.deepEqual(transkryptNaRekordy(fixture('codex-exec.jsonl'), 'codex'), []);
 });

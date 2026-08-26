@@ -1,6 +1,6 @@
 {
   "name": "messaging-log-plugin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Hak, skill i skrypty dziennika rozmów. Dane mieszkają w repo messaging-log.",
