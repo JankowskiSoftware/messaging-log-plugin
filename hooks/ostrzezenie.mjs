@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Hak Stop synchroniczny Claude Code: czyta ślad awarii i nic więcej. Istnieje
-// dlatego, że wyjście haka asynchronicznego nie dociera tam do Michała, a nieudany
-// zapis rozmowy musi być widoczny, zanim ruszy kolejna tura. Żadnego gita, żadnej
-// sieci. Codex nie potrzebuje tego haka — ostrzega przez własny stop.mjs.
+// Hak Stop synchroniczny: czyta ślad awarii i nic więcej. Istnieje dlatego, że
+// wyjście haka asynchronicznego nie dociera do Michała, a nieudany zapis rozmowy
+// musi być widoczny, zanim ruszy kolejna tura. Żadnego gita, żadnej sieci.
+// Oba hosty biorą go z tego samego `hooks/hooks.json`, więc ostrzeżenie jest jedno.
 
 import { komunikatSladu } from '../lib/awaria.mjs';
 

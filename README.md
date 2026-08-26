@@ -15,7 +15,7 @@ rozjechałyby się same:
 
 ```
 git clone https://github.com/JankowskiSoftware/messaging-log-plugin %USERPROFILE%\repos\messaging-log-plugin
-git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.2.0
+git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.2.1
 ```
 
 ```
@@ -58,7 +58,7 @@ Podpowiedź do wklejenia w sesji na drugim komputerze:
 ```
 Skonfiguruj ten komputer jako TYLKO ZAPISUJĄCY dla Messaging Loga.
 1. git clone https://github.com/JankowskiSoftware/messaging-log-plugin %USERPROFILE%\repos\messaging-log-plugin
-2. git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.2.0   (ta sama wersja co na pierwszym komputerze)
+2. git -C %USERPROFILE%\repos\messaging-log-plugin checkout v0.2.1   (ta sama wersja co na pierwszym komputerze)
 3. /plugin marketplace add %USERPROFILE%\repos\messaging-log-plugin oraz /plugin install messaging-log@messaging-log
 4. Wpisz token do repo messaging-log w ~/.messaging-log-token
 Nie zakładaj ~/.messaging-log-wlasciciel i nie uruchamiaj
@@ -66,18 +66,25 @@ AKTYWNOSC/setup-ClaudeAktywnosc.cmd z repo personal — sekcje aktywności liczy
 wyłącznie pierwszy komputer.
 ```
 
-To samo repo jest wtyczką Codeksa (`.codex-plugin/plugin.json` i `hooks.json`
-w korzeniu — tak samo jak wtyczki firmowe Codeksa). Codex woła ten sam
-`hooks/stop.mjs` z argumentem `codex`, więc rozmowy z obu narzędzi idą jednym
-torem: filtr, plik sesji, zatwierdzenie, wypchnięcie i ten sam ślad awarii.
-Adapter Codeksa to wyłącznie brama zdatności na natywnych polach zdarzenia —
-`hook_event_name`, `agent_id`, `agent_type` — bez czytania treści rozmowy. Tura
-podagenta (`SubagentStop`) odpada przed zapisem; tura główna, która sama odpaliła
-podagenty, wchodzi normalnie; każde inne zdarzenie jest pomijane i zgłaszane.
+To samo repo jest wtyczką Codeksa (`.codex-plugin/plugin.json`). Plik haka jest
+jeden i wspólny — `hooks/hooks.json`, bo dokładnie stamtąd Codex czyta swoje
+zdarzenie Stop — więc rozmowy z obu narzędzi idą jednym torem: filtr, plik sesji,
+zatwierdzenie, wypchnięcie i ten sam ślad awarii. Osobnego `hooks.json`
+w korzeniu nie ma i mieć nie może: Codex go nie rejestruje, a dublował tylko
+wpis, przez który hak dostawał argument `codex` raz tak, raz nie.
 
-Codeksowi wystarcza jeden hak asynchroniczny, bo pokazuje jego `systemMessage`:
-ostrzeżenie o zaległości wypisuje sam `stop.mjs`, zanim cokolwiek zrobi. Claude
-Code potrzebuje do tego osobnego, synchronicznego `hooks/ostrzezenie.mjs`.
+Który to format transkryptu, poznaje `zrodloTranskryptu()` po kształcie linii
+(rollout Codeksa ma `session_meta`/`event_msg`, transkrypt Claude'a
+`user`/`assistant`) — nigdy po treści rozmowy i nigdy po argumencie wywołania.
+Czytane są oba zapisy wymian Codeksa: starszy `user_message`/`agent_message`
+i bieżący Desktopowy `item_completed` z `UserMessage`/`AgentMessage`.
+
+Brama zdatności stoi wyłącznie na natywnych polach zdarzenia — `hook_event_name`,
+`agent_id`, `agent_type`: tura podagenta odpada przed zapisem, tura główna, która
+sama odpaliła podagenty, wchodzi normalnie.
+
+Ostrzeżenie o zaległości wypisuje jeden, synchroniczny `hooks/ostrzezenie.mjs`,
+ten sam dla obu hostów — wyjście haka asynchronicznego do Michała nie dociera.
 
 Token drobnoziarnisty do repo `messaging-log` (Contents: read and write) ląduje
 w `~/.messaging-log-token`, a w paczce `.plugin` w `token.txt` obok pluginu.

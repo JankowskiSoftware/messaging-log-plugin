@@ -285,9 +285,10 @@ test('zdarzenie Stop bez transkryptu: pominięte i zgłoszone, klon nietknięty'
 });
 
 // ── Codex ────────────────────────────────────────────────────────────────────
-// Ten sam hak, inne źródło: Codex woła `stop.mjs codex` swoim natywnym
-// zdarzeniem Stop. Pola zdarzenia są te same co u Claude'a plus `hook_event_name`,
-// `agent_id` i `agent_type`, po których poznaje się turę podagenta.
+// Ten sam hak i ten sam wpis w hooks/hooks.json: Codex woła `stop.mjs` bez
+// żadnego argumentu, a format rozpoznaje filtr po kształcie transkryptu. Pola
+// zdarzenia są te same co u Claude'a plus `hook_event_name`, `agent_id`
+// i `agent_type`, po których poznaje się turę podagenta.
 
 const SESJA_CODEKSA = 'c0dec5aa-1111-4957-b265-241e57ee9d49';
 const WZGLEDNA_CODEKSA = 'rozmowy/2026-07-05/1902-beta-c0dec5aa.jsonl';
@@ -308,7 +309,7 @@ const wiadomosc = (type, message, i) =>
 function hakCodeksa(k, tresc, wejscie = {}) {
   const plik = path.join(k.dom, 'rollout.jsonl');
   fs.writeFileSync(plik, tresc);
-  return spawnSync('node', [STOP, 'codex'], {
+  return spawnSync('node', [STOP], {
     input: JSON.stringify({
       hook_event_name: 'Stop',
       session_id: SESJA_CODEKSA,
@@ -392,15 +393,14 @@ test('Codex: przebieg maszynowy odsiewa natywne pochodzenie sesji', () => {
   }
 });
 
-test('Codex: bez natywnej nazwy zdarzenia tura jest pominięta i ograniczenie zgłoszone', () => {
+test('Codex: tura główna bez nazwy zdarzenia wchodzi normalnie', () => {
   const k = srodowisko();
   try {
     assert.equal(hakCodeksa(k, rollout('codex_vscode', [
       wiadomosc('user_message', 'pytanie do Codeksa', 0),
     ]), { hook_event_name: undefined }).status, 0);
-    brakPlikuCodeksa(k);
-    assert.equal(slad(k).odzyskiwalne, false);
-    assert.match(slad(k).powod, /hook_event_name/);
+    assert.equal(fs.existsSync(path.join(k.klon, WZGLEDNA_CODEKSA)), true);
+    assert.equal(fs.existsSync(AWARIA(k)), false);
   } finally {
     fs.rmSync(k.dom, { recursive: true, force: true });
   }
@@ -424,35 +424,32 @@ test('Codex: przerwana tura zostawia pełne pytanie, nigdy urwanej odpowiedzi', 
   }
 });
 
-test('Codex: ostrzeżenie idzie własnym systemMessage, przed pracą, i znika po odzysku', () => {
+test('Codex: bieżący format Desktopa (item_completed) zapisuje się tak samo', () => {
   const k = srodowisko();
   try {
-    const tura = () => hakCodeksa(k, rollout('codex_vscode', [
-      wiadomosc('user_message', 'pytanie do Codeksa', 0),
-      wiadomosc('agent_message', 'odpowiedź Codeksa', 1),
-    ]));
+    const pozycja = (typ, text, i) => JSON.stringify({
+      timestamp: `2026-07-05T17:0${2 + i}:36.402Z`,
+      type: 'event_msg',
+      payload: { type: 'item_completed', item: { type: typ, text } },
+    });
+    assert.equal(hakCodeksa(k, rollout('Codex Desktop', [
+      pozycja('UserMessage', 'pytanie do Codeksa', 0),
+      pozycja('AgentMessage', 'odpowiedź Codeksa', 1),
+    ])).status, 0);
 
-    przekieruj(k, path.join(k.dom, 'nie-ma.git'));
-    assert.equal(tura().stdout, '', 'pierwsza tura nie ma jeszcze o czym ostrzegać');
-    assert.equal(slad(k).odzyskiwalne, true);
-
-    // druga tura: Codeksowi wystarcza hak asynchroniczny, bo pokazuje jego systemMessage
-    assert.match(JSON.parse(tura().stdout).systemMessage, /Messaging Log/);
-
-    // sieć wraca: ta tura jeszcze ostrzega (ślad zastaje), ale zaległość dochodzi
-    przekieruj(k, k.zdalne);
-    assert.match(JSON.parse(tura().stdout).systemMessage, /Messaging Log/);
-    assert.equal(fs.existsSync(AWARIA(k)), false, 'odzysk kasuje ślad');
-    assert.equal(tura().stdout, '', 'bez śladu hak milczy');
+    const zapisane = fs.readFileSync(path.join(k.klon, WZGLEDNA_CODEKSA), 'utf8')
+      .trim().split('\n').map(JSON.parse);
+    assert.deepEqual(zapisane.map(r => r.tekst), ['pytanie do Codeksa', 'odpowiedź Codeksa']);
+    assert.deepEqual(zapisane.map(r => r.rola), ['michal', 'claude']);
   } finally {
     fs.rmSync(k.dom, { recursive: true, force: true });
   }
 });
 
-test('źródła się nie mieszają: hak w złym trybie nie zapisuje niczego', () => {
+test('wspólny plik haka: format poznaje się z transkryptu, nie z argumentu', () => {
   const k = srodowisko();
   try {
-    // rollout Codeksa czytany jako Claude — gdyby Codex zaciągnął także hooks/hooks.json
+    // dokładnie ten wpis, który Codex zaciąga z hooks/hooks.json — bez argumentu
     const plik = path.join(k.dom, 'rollout.jsonl');
     fs.writeFileSync(plik, rollout('codex_vscode', [wiadomosc('user_message', 'pytanie do Codeksa', 0)]));
     assert.equal(spawnSync('node', [STOP], {
@@ -460,11 +457,15 @@ test('źródła się nie mieszają: hak w złym trybie nie zapisuje niczego', ()
       env: k.env,
       encoding: 'utf8',
     }).status, 0);
-    brakPlikuCodeksa(k);
+    assert.deepEqual(
+      fs.readFileSync(path.join(k.klon, WZGLEDNA_CODEKSA), 'utf8').trim().split('\n')
+        .map(l => JSON.parse(l).tekst),
+      ['pytanie do Codeksa'],
+    );
 
-    // i odwrotnie: transkrypt Claude'a czytany jako Codex
-    assert.equal(hakCodeksa(k, transkrypt([['user', 'wymiana 0']])).status, 0);
-    assert.equal(fs.existsSync(path.join(k.klon, 'rozmowy')), false);
+    // ten sam hak z transkryptem Claude'a dalej czyta go jako Claude'a
+    assert.equal(hak(k, [['user', 'wymiana 0']]).status, 0);
+    assert.equal(fs.existsSync(path.join(k.klon, WZGLEDNA)), true);
     assert.equal(fs.existsSync(AWARIA(k)), false);
   } finally {
     fs.rmSync(k.dom, { recursive: true, force: true });
