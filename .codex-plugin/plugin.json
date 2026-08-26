@@ -2,5 +2,14 @@
   "name": "messaging-log",
   "version": "0.2.0",
   "description": "Zapisuje rozmowy z Codeksa do prywatnego repo messaging-log.",
-  "author": { "name": "Michał Jankowski" }
+  "author": { "name": "Michał Jankowski" },
+  "interface": {
+    "displayName": "Messaging Log",
+    "shortDescription": "Zapis rozmów i odczyt dziennika pracy.",
+    "longDescription": "Zapisuje główne wymiany z Codeksa i Claude Code oraz udostępnia dziennik pracy z repo Personal.",
+    "developerName": "Michał Jankowski",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": ["Co robiłem wczoraj?"]
+  }
 }
